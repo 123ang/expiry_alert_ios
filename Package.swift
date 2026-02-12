@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "ExpiryAlert",
-    platforms: [.iOS(.v15)],
+    platforms: [.iOS(.v17)],
     targets: [
         .executableTarget(
             name: "ExpiryAlert",
