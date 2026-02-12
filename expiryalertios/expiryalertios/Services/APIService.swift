@@ -3,16 +3,16 @@ import Foundation
 // MARK: - API Configuration
 enum APIConfig {
     /// API base URL. Set in Info.plist key "APIBaseURL" to override.
-    /// On Simulator, use your Mac's IP (e.g. http://192.168.1.x:3000/api), not localhost.
+    /// On Simulator, use your Mac's IP (e.g. http://192.168.1.x:3006/api), not localhost.
     static var baseURL: String {
         if let custom = Bundle.main.object(forInfoDictionaryKey: "APIBaseURL") as? String,
            !custom.isEmpty {
             return custom.hasSuffix("/") ? String(custom.dropLast()) : custom
         }
         #if DEBUG
-        return "http://localhost:3000/api"
+        return "http://localhost:3006/api"
         #else
-        return "https://your-vps-domain.com/api"
+        return "https://api.expiry-alert.link/api"
         #endif
     }
 }
@@ -287,12 +287,25 @@ class APIService {
         }
         
         struct UploadResponse: Codable {
-            let url: String?
-            let filename: String?
+            let message: String?
+            let file: FileData?
+            
+            struct FileData: Codable {
+                let id: String?
+                let filename: String?
+                let path: String?
+                let url: String?
+                let size: Int?
+                let mimetype: String?
+            }
         }
         
         let uploadResponse = try decoder.decode(UploadResponse.self, from: data)
-        return uploadResponse.url ?? uploadResponse.filename ?? ""
+        return uploadResponse.file?.url ?? uploadResponse.file?.filename ?? ""
+    }
+    
+    func deleteImage(filename: String) async throws {
+        try await requestVoid(endpoint: "/upload/image/\(filename)", method: "DELETE")
     }
 }
 
@@ -342,17 +355,46 @@ extension APIService {
         return response.groups
     }
     
+    func getGroup(id: String) async throws -> Group {
+        struct Response: Codable { let group: Group }
+        let response: Response = try await request(endpoint: "/groups/\(id)")
+        return response.group
+    }
+    
     func createGroup(name: String, description: String?) async throws -> Group {
         var body: [String: Any] = ["name": name]
         if let desc = description { body["description"] = desc }
-        let response: SingleItemResponse<Group> = try await request(endpoint: "/groups", method: "POST", body: body)
-        return response.item
+        struct Response: Codable { let group: Group }
+        let response: Response = try await request(endpoint: "/groups", method: "POST", body: body)
+        return response.group
+    }
+    
+    func updateGroup(id: String, name: String?, description: String?) async throws -> Group {
+        var body: [String: Any] = [:]
+        if let name = name { body["name"] = name }
+        if let desc = description { body["description"] = desc }
+        struct Response: Codable { let group: Group }
+        let response: Response = try await request(endpoint: "/groups/\(id)", method: "PATCH", body: body)
+        return response.group
+    }
+    
+    func deleteGroup(id: String) async throws {
+        try await requestVoid(endpoint: "/groups/\(id)", method: "DELETE")
     }
     
     func getGroupMembers(groupId: String) async throws -> [GroupMembership] {
         struct Response: Codable { let members: [GroupMembership] }
         let response: Response = try await request(endpoint: "/groups/\(groupId)/members")
         return response.members
+    }
+    
+    func removeGroupMember(groupId: String, memberId: String) async throws {
+        try await requestVoid(endpoint: "/groups/\(groupId)/members/\(memberId)", method: "DELETE")
+    }
+    
+    func updateGroupMemberRole(groupId: String, memberId: String, role: String) async throws {
+        let body: [String: Any] = ["role": role]
+        try await requestVoid(endpoint: "/groups/\(groupId)/members/\(memberId)", method: "PATCH", body: body)
     }
 }
 
@@ -472,12 +514,19 @@ extension APIService {
             "quantity_affected": quantityAffected
         ]
         if let reason = disposalReason { body["disposal_reason"] = reason }
-        let response: SingleItemResponse<FoodItemEvent> = try await request(
+        struct Response: Codable { let event: FoodItemEvent }
+        let response: Response = try await request(
             endpoint: "/food-items/\(itemId)/events",
             method: "POST",
             body: body
         )
-        return response.item
+        return response.event
+    }
+    
+    func getFoodItemEvents(itemId: String) async throws -> [FoodItemEvent] {
+        struct Response: Codable { let events: [FoodItemEvent] }
+        let response: Response = try await request(endpoint: "/food-items/\(itemId)/events")
+        return response.events
     }
 }
 
@@ -487,6 +536,11 @@ extension APIService {
         let endpoint = "/shopping-items?group_id=\(groupId)&include_purchased=\(includePurchased)"
         let response: ItemsResponse<ShoppingItem> = try await request(endpoint: endpoint)
         return response.items
+    }
+    
+    func getShoppingItem(id: String) async throws -> ShoppingItem {
+        let response: SingleItemResponse<ShoppingItem> = try await request(endpoint: "/shopping-items/\(id)")
+        return response.item
     }
     
     func createShoppingItem(item: [String: Any]) async throws -> ShoppingItem {
@@ -513,6 +567,15 @@ extension APIService {
         )
         return response.item
     }
+    
+    func clearPurchasedShoppingItems(groupId: String) async throws -> Int {
+        struct Response: Codable { let deletedCount: Int? }
+        let body: [String: Any] = ["group_id": groupId]
+        let response: Response = try await request(
+            endpoint: "/shopping-items/clear-purchased", method: "POST", body: body
+        )
+        return response.deletedCount ?? 0
+    }
 }
 
 // MARK: - Wish Items API
@@ -522,6 +585,11 @@ extension APIService {
             endpoint: "/wish-items?group_id=\(groupId)"
         )
         return response.items
+    }
+    
+    func getWishItem(id: String) async throws -> WishItem {
+        let response: SingleItemResponse<WishItem> = try await request(endpoint: "/wish-items/\(id)")
+        return response.item
     }
     
     func createWishItem(item: [String: Any]) async throws -> WishItem {
@@ -551,13 +619,21 @@ extension APIService {
         return response.invitations
     }
     
-    func sendInvitation(groupId: String, email: String, role: String = "member") async throws {
+    func sendInvitation(groupId: String, email: String, role: String = "member") async throws -> Invitation {
         let body: [String: Any] = [
             "group_id": groupId,
             "email": email,
             "role": role
         ]
-        try await requestVoid(endpoint: "/invitations/send", method: "POST", body: body)
+        struct Response: Codable { let invitation: Invitation }
+        let response: Response = try await request(endpoint: "/invitations/send", method: "POST", body: body)
+        return response.invitation
+    }
+    
+    func verifyInviteCode(code: String) async throws -> InviteVerification {
+        struct Response: Codable { let invite: InviteVerification }
+        let response: Response = try await request(endpoint: "/invitations/verify/\(code)", authenticated: false)
+        return response.invite
     }
     
     func acceptInvitation(id: String) async throws {
@@ -600,5 +676,97 @@ extension APIService {
         struct Response: Codable { let settings: UserSettings }
         let response: Response = try await request(endpoint: "/users/me/settings", method: "PATCH", body: settings)
         return response.settings
+    }
+}
+
+// MARK: - Analytics API
+extension APIService {
+    func getAnalyticsSummary(groupId: String, startDate: String? = nil, endDate: String? = nil, months: Int = 3) async throws -> AnalyticsSummary {
+        var endpoint = "/analytics/summary?group_id=\(groupId)&months=\(months)"
+        if let startDate = startDate { endpoint += "&start_date=\(startDate)" }
+        if let endDate = endDate { endpoint += "&end_date=\(endDate)" }
+        struct Response: Codable { let summary: AnalyticsSummary }
+        let response: Response = try await request(endpoint: endpoint)
+        return response.summary
+    }
+    
+    func getCategoryBreakdown(groupId: String, startDate: String? = nil, endDate: String? = nil) async throws -> [CategoryBreakdown] {
+        var endpoint = "/analytics/category-breakdown?group_id=\(groupId)"
+        if let startDate = startDate { endpoint += "&start_date=\(startDate)" }
+        if let endDate = endDate { endpoint += "&end_date=\(endDate)" }
+        struct Response: Codable { let breakdown: [CategoryBreakdown] }
+        let response: Response = try await request(endpoint: endpoint)
+        return response.breakdown
+    }
+    
+    func getLocationBreakdown(groupId: String, startDate: String? = nil, endDate: String? = nil) async throws -> [LocationBreakdown] {
+        var endpoint = "/analytics/location-breakdown?group_id=\(groupId)"
+        if let startDate = startDate { endpoint += "&start_date=\(startDate)" }
+        if let endDate = endDate { endpoint += "&end_date=\(endDate)" }
+        struct Response: Codable { let breakdown: [LocationBreakdown] }
+        let response: Response = try await request(endpoint: endpoint)
+        return response.breakdown
+    }
+    
+    func getMonthlyTrends(groupId: String, months: Int = 12) async throws -> [MonthlyTrend] {
+        let endpoint = "/analytics/monthly-trends?group_id=\(groupId)&months=\(months)"
+        struct Response: Codable { let trends: [MonthlyTrend] }
+        let response: Response = try await request(endpoint: endpoint)
+        return response.trends
+    }
+    
+    func getMostWastedItems(groupId: String, limit: Int = 10) async throws -> [WastedItem] {
+        let endpoint = "/analytics/most-wasted?group_id=\(groupId)&limit=\(limit)"
+        struct Response: Codable { let items: [WastedItem] }
+        let response: Response = try await request(endpoint: endpoint)
+        return response.items
+    }
+    
+    func getDisposalReasons(groupId: String) async throws -> [DisposalReasonBreakdown] {
+        let endpoint = "/analytics/disposal-reasons?group_id=\(groupId)"
+        struct Response: Codable { let reasons: [DisposalReasonBreakdown] }
+        let response: Response = try await request(endpoint: endpoint)
+        return response.reasons
+    }
+    
+    func getExpiryPatterns(groupId: String) async throws -> ExpiryPatterns {
+        let endpoint = "/analytics/expiry-patterns?group_id=\(groupId)"
+        struct Response: Codable { let patterns: ExpiryPatterns }
+        let response: Response = try await request(endpoint: endpoint)
+        return response.patterns
+    }
+    
+    func getComprehensiveAnalytics(groupId: String, months: Int = 3) async throws -> ComprehensiveAnalytics {
+        let endpoint = "/analytics/comprehensive?group_id=\(groupId)&months=\(months)"
+        struct Response: Codable { let analytics: ComprehensiveAnalytics }
+        let response: Response = try await request(endpoint: endpoint)
+        return response.analytics
+    }
+}
+
+// MARK: - Health Check API
+extension APIService {
+    func healthCheck() async throws -> HealthStatus {
+        // Note: Health endpoint uses base URL without /api prefix
+        guard let baseURL = URL(string: APIConfig.baseURL) else {
+            throw APIError.invalidURL
+        }
+        let healthURL = baseURL.deletingLastPathComponent().appendingPathComponent("health")
+        
+        guard let url = URL(string: healthURL.absoluteString) else {
+            throw APIError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError(0, "Health check failed")
+        }
+        
+        return try decoder.decode(HealthStatus.self, from: data)
     }
 }

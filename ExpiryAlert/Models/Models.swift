@@ -381,6 +381,26 @@ struct Invitation: Codable, Identifiable {
     }
 }
 
+struct InviteVerification: Codable {
+    let inviteCode: String?
+    let groupId: String?
+    let groupName: String?
+    let invitedBy: String?
+    let inviterName: String?
+    let status: String?
+    let expiresAt: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case status
+        case inviteCode = "invite_code"
+        case groupId = "group_id"
+        case groupName = "group_name"
+        case invitedBy = "invited_by"
+        case inviterName = "inviter_name"
+        case expiresAt = "expires_at"
+    }
+}
+
 // MARK: - User Settings
 struct UserSettings: Codable {
     var priceTrackingEnabled: Bool?
@@ -421,6 +441,132 @@ struct AnalyticsSummary: Codable {
     }
 }
 
+struct CategoryBreakdown: Codable {
+    let categoryId: String?
+    let categoryName: String?
+    let totalItems: Int?
+    let wastedItems: Int?
+    let wastePercentage: Double?
+    let estimatedWasteValue: Double?
+    
+    enum CodingKeys: String, CodingKey {
+        case categoryId = "category_id"
+        case categoryName = "category_name"
+        case totalItems = "total_items"
+        case wastedItems = "wasted_items"
+        case wastePercentage = "waste_percentage"
+        case estimatedWasteValue = "estimated_waste_value"
+    }
+}
+
+struct LocationBreakdown: Codable {
+    let locationId: String?
+    let locationName: String?
+    let totalItems: Int?
+    let wastedItems: Int?
+    let wastePercentage: Double?
+    let estimatedWasteValue: Double?
+    
+    enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+        case locationName = "location_name"
+        case totalItems = "total_items"
+        case wastedItems = "wasted_items"
+        case wastePercentage = "waste_percentage"
+        case estimatedWasteValue = "estimated_waste_value"
+    }
+}
+
+struct MonthlyTrend: Codable {
+    let month: String?
+    let totalItemsAdded: Int?
+    let totalItemsUsed: Int?
+    let totalItemsWasted: Int?
+    let wastePercentage: Double?
+    let estimatedWasteValue: Double?
+    
+    enum CodingKeys: String, CodingKey {
+        case month
+        case totalItemsAdded = "total_items_added"
+        case totalItemsUsed = "total_items_used"
+        case totalItemsWasted = "total_items_wasted"
+        case wastePercentage = "waste_percentage"
+        case estimatedWasteValue = "estimated_waste_value"
+    }
+}
+
+struct WastedItem: Codable {
+    let itemName: String?
+    let categoryName: String?
+    let timesWasted: Int?
+    let totalQuantity: Int?
+    let estimatedValue: Double?
+    
+    enum CodingKeys: String, CodingKey {
+        case itemName = "item_name"
+        case categoryName = "category_name"
+        case timesWasted = "times_wasted"
+        case totalQuantity = "total_quantity"
+        case estimatedValue = "estimated_value"
+    }
+}
+
+struct DisposalReasonBreakdown: Codable {
+    let disposalReason: String?
+    let count: Int?
+    let percentage: Double?
+    
+    enum CodingKeys: String, CodingKey {
+        case disposalReason = "disposal_reason"
+        case count
+        case percentage
+    }
+}
+
+struct ExpiryPatterns: Codable {
+    let avgDaysBeforeExpiry: Double?
+    let mostCommonExpiryDay: Int?
+    let expiryDistribution: [ExpiryDistribution]?
+    
+    enum CodingKeys: String, CodingKey {
+        case avgDaysBeforeExpiry = "avg_days_before_expiry"
+        case mostCommonExpiryDay = "most_common_expiry_day"
+        case expiryDistribution = "expiry_distribution"
+    }
+}
+
+struct ExpiryDistribution: Codable {
+    let daysRange: String?
+    let count: Int?
+    let percentage: Double?
+    
+    enum CodingKeys: String, CodingKey {
+        case daysRange = "days_range"
+        case count
+        case percentage
+    }
+}
+
+struct ComprehensiveAnalytics: Codable {
+    let summary: AnalyticsSummary?
+    let categoryBreakdown: [CategoryBreakdown]?
+    let locationBreakdown: [LocationBreakdown]?
+    let monthlyTrends: [MonthlyTrend]?
+    let mostWasted: [WastedItem]?
+    let disposalReasons: [DisposalReasonBreakdown]?
+    let expiryPatterns: ExpiryPatterns?
+    
+    enum CodingKeys: String, CodingKey {
+        case summary
+        case categoryBreakdown = "category_breakdown"
+        case locationBreakdown = "location_breakdown"
+        case monthlyTrends = "monthly_trends"
+        case mostWasted = "most_wasted"
+        case disposalReasons = "disposal_reasons"
+        case expiryPatterns = "expiry_patterns"
+    }
+}
+
 // MARK: - API Response Wrappers
 struct ItemsResponse<T: Codable>: Codable {
     let items: [T]
@@ -437,6 +583,12 @@ struct MessageResponse: Codable {
 
 struct ErrorResponse: Codable {
     let error: String
+}
+
+struct HealthStatus: Codable {
+    let status: String
+    let timestamp: String?
+    let environment: String?
 }
 
 // MARK: - Device Identifier Helper
