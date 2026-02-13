@@ -139,13 +139,8 @@ struct ThemeSetupModal: View {
                 }
                 
                 // Create categories sequentially
-                for (name, icon, key) in categoriesToCreate {
-                    try await dataStore.createCategory([
-                        "group_id": groupId,
-                        "name": name,
-                        "icon": icon,
-                        "translation_key": key
-                    ])
+                for (name, icon, _) in categoriesToCreate {
+                    try await dataStore.createCategory(name: name, icon: icon)
                     // Small delay to avoid overwhelming the API
                     try await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
                 }

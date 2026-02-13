@@ -288,6 +288,11 @@ class DataStore: ObservableObject {
         shoppingItems.removeAll { $0.id == id }
     }
     
+    func clearPurchasedShoppingItems(groupId: String) async throws {
+        _ = try await APIService.shared.clearPurchasedShoppingItems(groupId: groupId)
+        shoppingItems.removeAll { $0.isPurchased }
+    }
+    
     // MARK: - Wish Item CRUD
     func createWishItem(_ data: [String: Any]) async throws {
         let item = try await APIService.shared.createWishItem(item: data)
