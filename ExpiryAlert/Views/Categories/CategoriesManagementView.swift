@@ -39,6 +39,30 @@ struct CategoriesManagementView: View {
             Color(hex: theme.backgroundColor).ignoresSafeArea()
             
             List {
+                if dataStore.categories.isEmpty, let err = dataStore.error {
+                    Section {
+                        VStack(spacing: 12) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.title)
+                                .foregroundColor(Color(hex: theme.warningColor))
+                            Text("Couldn't load categories")
+                                .font(.headline)
+                                .foregroundColor(Color(hex: theme.textColor))
+                            Text(err)
+                                .font(.caption)
+                                .foregroundColor(Color(hex: theme.textSecondary))
+                                .multilineTextAlignment(.center)
+                            Button("Retry") {
+                                dataStore.error = nil
+                                Task { await dataStore.refreshCategories() }
+                            }
+                            .foregroundColor(Color(hex: theme.primaryColor))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
+                    }
+                    .listRowBackground(Color(hex: theme.cardBackground))
+                }
                 ForEach(Array(categoriesBySection.enumerated()), id: \.offset) { _, pair in
                     Section(header: sectionHeader(pair.section)) {
                         ForEach(pair.items) { category in

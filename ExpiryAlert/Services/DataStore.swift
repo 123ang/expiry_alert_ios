@@ -99,6 +99,7 @@ class DataStore: ObservableObject {
     }
     
     func refreshCategories() async {
+        error = nil
         let sortCategories: ([Category]) -> [Category] = { list in
             list.sorted { a, b in
                 let aOrder = a.sortOrder ?? Int.max
