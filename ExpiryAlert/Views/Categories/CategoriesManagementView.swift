@@ -91,6 +91,12 @@ struct CategoriesManagementView: View {
         .sheet(isPresented: $showThemeSetup) {
             ThemeSetupModal()
         }
+        .onChange(of: showThemeSetup) { _, isShowing in
+            if !isShowing { Task { await dataStore.refreshCategories() } }
+        }
+        .refreshable {
+            await dataStore.refreshCategories()
+        }
     }
     
     @ViewBuilder

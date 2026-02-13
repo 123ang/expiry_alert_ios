@@ -138,19 +138,48 @@ struct ThemeSetupModal: View {
                     }
                 }
                 
-                // Create categories sequentially
+                // Create categories sequentially; skip 409 (already exists)
+                var added = 0
+                var skipped = 0
                 for (name, icon, _) in categoriesToCreate {
-                    try await dataStore.createCategory(name: name, icon: icon)
-                    // Small delay to avoid overwhelming the API
-                    try await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+                    do {
+                        try await dataStore.createCategory(name: name, icon: icon)
+                        added += 1
+                        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+                    } catch let err as APIError {
+                        if case .serverError(409, _) = err {
+                            skipped += 1
+                            continue
+                        }
+                        await MainActor.run {
+                            isApplying = false
+                            errorMessage = err.localizedDescription
+                            showError = true
+                        }
+                        return
+                    } catch {
+                        await MainActor.run {
+                            isApplying = false
+                            errorMessage = error.localizedDescription
+                            showError = true
+                        }
+                        return
+                    }
                 }
                 
-                // Refresh categories
+                // Refresh categories so the list updates
                 await dataStore.refreshCategories()
                 
                 await MainActor.run {
                     isApplying = false
-                    dismiss()
+                    if added > 0 {
+                        dismiss()
+                    } else if skipped > 0 {
+                        errorMessage = "All selected categories already exist in this group."
+                        showError = true
+                    } else {
+                        dismiss()
+                    }
                 }
             } catch {
                 await MainActor.run {

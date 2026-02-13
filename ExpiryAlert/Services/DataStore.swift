@@ -99,13 +99,25 @@ class DataStore: ObservableObject {
     }
     
     func refreshCategories() async {
-        guard let groupId = activeGroupId else { return }
-        do {
-            let dCats = (try? await APIService.shared.getCategories(groupId: nil)) ?? []
-            let gCats = try await APIService.shared.getCategories(groupId: groupId)
-            categories = DataStore.mergeDefaultsWithGroup(defaults: dCats, groupItems: gCats)
-        } catch {
-            self.error = error.localizedDescription
+        let sortCategories: ([Category]) -> [Category] = { list in
+            list.sorted { a, b in
+                let aOrder = a.sortOrder ?? Int.max
+                let bOrder = b.sortOrder ?? Int.max
+                if aOrder != bOrder { return aOrder < bOrder }
+                return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+            }
+        }
+        let dCats = (try? await APIService.shared.getCategories(groupId: nil)) ?? []
+        if let groupId = activeGroupId {
+            do {
+                let gCats = try await APIService.shared.getCategories(groupId: groupId)
+                categories = DataStore.mergeDefaultsWithGroup(defaults: dCats, groupItems: gCats)
+            } catch {
+                self.error = error.localizedDescription
+                categories = sortCategories(dCats)
+            }
+        } else {
+            categories = sortCategories(dCats)
         }
     }
     
