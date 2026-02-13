@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		D0CA1B362F3E2D5000E63649 /* expiryalertios.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = expiryalertios.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D0CA1B362F3E2D5000E63649 /* ExpiryAlert.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ExpiryAlert.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		D0CA1B382F3E2D5000E63649 /* expiryalertios */ = {
+		D0CA1B382F3E2D5000E63649 /* ExpiryAlert */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = expiryalertios;
+			path = ExpiryAlert;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -32,7 +32,7 @@
 		D0CA1B2D2F3E2D5000E63649 = {
 			isa = PBXGroup;
 			children = (
-				D0CA1B382F3E2D5000E63649 /* expiryalertios */,
+				D0CA1B382F3E2D5000E63649 /* ExpiryAlert */,
 				D0CA1B372F3E2D5000E63649 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -40,7 +40,7 @@
 		D0CA1B372F3E2D5000E63649 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D0CA1B362F3E2D5000E63649 /* expiryalertios.app */,
+				D0CA1B362F3E2D5000E63649 /* ExpiryAlert.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,9 +48,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		D0CA1B352F3E2D5000E63649 /* expiryalertios */ = {
+		D0CA1B352F3E2D5000E63649 /* ExpiryAlert */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = D0CA1B412F3E2D5100E63649 /* Build configuration list for PBXNativeTarget "expiryalertios" */;
+			buildConfigurationList = D0CA1B412F3E2D5100E63649 /* Build configuration list for PBXNativeTarget "ExpiryAlert" */;
 			buildPhases = (
 				D0CA1B322F3E2D5000E63649 /* Sources */,
 				D0CA1B332F3E2D5000E63649 /* Frameworks */,
@@ -61,13 +61,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				D0CA1B382F3E2D5000E63649 /* expiryalertios */,
+				D0CA1B382F3E2D5000E63649 /* ExpiryAlert */,
 			);
-			name = expiryalertios;
+			name = ExpiryAlert;
 			packageProductDependencies = (
 			);
-			productName = expiryalertios;
-			productReference = D0CA1B362F3E2D5000E63649 /* expiryalertios.app */;
+			productName = ExpiryAlert;
+			productReference = D0CA1B362F3E2D5000E63649 /* ExpiryAlert.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -85,7 +85,7 @@
 					};
 				};
 			};
-			buildConfigurationList = D0CA1B312F3E2D5000E63649 /* Build configuration list for PBXProject "expiryalertios" */;
+			buildConfigurationList = D0CA1B312F3E2D5000E63649 /* Build configuration list for PBXProject "ExpiryAlert" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -99,7 +99,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				D0CA1B352F3E2D5000E63649 /* expiryalertios */,
+				D0CA1B352F3E2D5000E63649 /* ExpiryAlert */,
 			);
 		};
 /* End PBXProject section */
@@ -315,7 +315,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		D0CA1B312F3E2D5000E63649 /* Build configuration list for PBXProject "expiryalertios" */ = {
+		D0CA1B312F3E2D5000E63649 /* Build configuration list for PBXProject "ExpiryAlert" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D0CA1B3F2F3E2D5100E63649 /* Debug */,
@@ -324,7 +324,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		D0CA1B412F3E2D5100E63649 /* Build configuration list for PBXNativeTarget "expiryalertios" */ = {
+		D0CA1B412F3E2D5100E63649 /* Build configuration list for PBXNativeTarget "ExpiryAlert" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				D0CA1B422F3E2D5100E63649 /* Debug */,

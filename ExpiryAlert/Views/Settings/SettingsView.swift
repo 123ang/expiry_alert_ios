@@ -13,6 +13,8 @@ struct SettingsView: View {
     @State private var newGroupName = ""
     @State private var createGroupError: String?
     @State private var showCreateGroupError = false
+    @State private var showClearExpiredAlert = false
+    @State private var showClearUsedAlert = false
     
     private var theme: AppTheme { themeManager.currentTheme }
     
@@ -115,12 +117,39 @@ struct SettingsView: View {
                     // Management
                     SettingsSection(title: "Management", theme: theme) {
                         NavigationLink(destination: CategoriesManagementView()) {
-                            settingsRowContent(icon: "square.grid.2x2.fill",
-                                               title: localizationManager.t("settings.manageCategories"))
+                            settingsRowWithDescription(
+                                icon: "square.grid.2x2.fill",
+                                title: localizationManager.t("settings.manageCategories"),
+                                description: "Organize items by category"
+                            )
                         }
                         NavigationLink(destination: LocationsManagementView()) {
-                            settingsRowContent(icon: "mappin.circle.fill",
-                                               title: localizationManager.t("settings.manageLocations"))
+                            settingsRowWithDescription(
+                                icon: "mappin.circle.fill",
+                                title: localizationManager.t("settings.manageLocations"),
+                                description: "Manage storage locations"
+                            )
+                        }
+                        
+                        Divider()
+                            .padding(.vertical, 4)
+                        
+                        Button(action: { showClearExpiredAlert = true }) {
+                            settingsRowWithDescription(
+                                icon: "trash.fill",
+                                title: "Clear Expired Items",
+                                description: "Remove all expired items",
+                                iconColor: theme.warningColor
+                            )
+                        }
+                        
+                        Button(action: { showClearUsedAlert = true }) {
+                            settingsRowWithDescription(
+                                icon: "checkmark.circle.fill",
+                                title: "Clear Used Items",
+                                description: "Remove all consumed items",
+                                iconColor: theme.successColor
+                            )
                         }
                     }
                     
@@ -184,6 +213,26 @@ struct SettingsView: View {
         } message: {
             Text(createGroupError ?? "Something went wrong")
         }
+        .alert("Clear Expired Items", isPresented: $showClearExpiredAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear", role: .destructive) {
+                Task {
+                    // TODO: Implement clear expired items functionality
+                }
+            }
+        } message: {
+            Text("This will remove all expired items from your list. This action cannot be undone.")
+        }
+        .alert("Clear Used Items", isPresented: $showClearUsedAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear", role: .destructive) {
+                Task {
+                    // TODO: Implement clear used items functionality
+                }
+            }
+        } message: {
+            Text("This will remove all consumed items from your list. This action cannot be undone.")
+        }
     }
     
     // MARK: - Settings Row
@@ -216,6 +265,30 @@ struct SettingsView: View {
             Text(title)
                 .foregroundColor(Color(hex: theme.textColor))
             Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundColor(Color(hex: theme.textSecondary))
+        }
+    }
+    
+    private func settingsRowWithDescription(icon: String, title: String, description: String, iconColor: String? = nil) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(Color(hex: iconColor ?? theme.primaryColor))
+                .frame(width: 28)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color(hex: theme.textColor))
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(Color(hex: theme.textSecondary))
+            }
+            
+            Spacer()
+            
             Image(systemName: "chevron.right")
                 .font(.caption)
                 .foregroundColor(Color(hex: theme.textSecondary))

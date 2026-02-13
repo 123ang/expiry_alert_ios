@@ -17,33 +17,39 @@ struct DashboardView: View {
             Color(hex: theme.backgroundColor).ignoresSafeArea()
             
             ScrollView {
-                VStack(spacing: 16) {
-                    // Header
-                    headerSection
+                VStack(spacing: 20) {
+                    // Logo + Title
+                    headerLogoSection
                     
-                    // Group Selector
-                    if dataStore.groups.count > 1 {
-                        groupSelector
-                    }
+                    // Welcome card with group selector
+                    welcomeCardSection
                     
-                    // Stats Cards
-                    statsSection
+                    // Three stat cards: Fresh, Expiring, Expired
+                    threeStatCardsSection
                     
-                    // Quick Actions
-                    quickActions
+                    // Storage Locations section with grid
+                    StorageLocationsSection(
+                        locations: dataStore.locations,
+                        foodItems: dataStore.foodItems,
+                        theme: theme,
+                        localizationManager: localizationManager
+                    )
                     
-                    // Expiring Soon Section
+                    // Categories section with grid
+                    CategoriesSection(
+                        categories: dataStore.categories,
+                        foodItems: dataStore.foodItems,
+                        theme: theme,
+                        localizationManager: localizationManager
+                    )
+                    
+                    // Expiring Soon (if any)
                     if !dataStore.expiringItems.isEmpty {
                         expiringSoonSection
                     }
-                    
-                    // Recently Added
-                    if !dataStore.foodItems.isEmpty {
-                        recentItemsSection
-                    }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 20)
+                .padding(.bottom, 100)
             }
             .refreshable {
                 await dataStore.loadAll()
@@ -53,6 +59,9 @@ struct DashboardView: View {
         .sheet(isPresented: $showAddItem) {
             AddItemView()
         }
+        .sheet(isPresented: $showGroupPicker) {
+            groupPickerSheet
+        }
         .task {
             if dataStore.foodItems.isEmpty {
                 await dataStore.loadAll()
@@ -60,102 +69,123 @@ struct DashboardView: View {
         }
     }
     
-    // MARK: - Header
-    private var headerSection: some View {
-        VStack(spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(localizationManager.t("home.welcome"))
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(Color(hex: theme.textColor))
-                    
-                    if let user = authViewModel.user {
-                        Text(user.fullName ?? user.email)
-                            .font(.subheadline)
+    // MARK: - Logo + Title Header
+    private var headerLogoSection: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(hex: theme.primaryColor))
+                    .frame(width: 44, height: 44)
+                Image(systemName: "leaf.fill")
+                    .font(.title2)
+                    .foregroundColor(.white)
+            }
+            Text(localizationManager.t("app.name"))
+                .font(.title)
+                .fontWeight(.bold)
+                .foregroundColor(Color(hex: theme.textColor))
+            Spacer()
+        }
+        .padding(.top, 12)
+    }
+    
+    // MARK: - Welcome Card (green) with group selector
+    private var welcomeCardSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Welcome Back!")
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+            
+            HStack(spacing: 12) {
+                Button(action: { if dataStore.groups.count > 1 { showGroupPicker = true } }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "person.3.fill")
+                            .foregroundColor(Color(hex: theme.primaryColor))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(activeGroupName)
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(Color(hex: theme.textColor))
+                            Text("Your personal food management group.")
+                                .font(.caption)
+                                .foregroundColor(Color(hex: theme.textSecondary))
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.caption)
                             .foregroundColor(Color(hex: theme.textSecondary))
                     }
+                    .padding(12)
+                    .background(Color.white)
+                    .cornerRadius(12)
                 }
-                Spacer()
+                .buttonStyle(.plain)
                 
-                // Notification Bell
-                NavigationLink(destination: NotificationsView()) {
-                    Image(systemName: "bell.fill")
+                Button(action: {
+                    Task { await dataStore.loadAll() }
+                }) {
+                    Image(systemName: "arrow.clockwise")
                         .font(.title3)
-                        .foregroundColor(Color(hex: theme.primaryColor))
-                        .padding(10)
-                        .background(Color(hex: theme.cardBackground))
+                        .foregroundColor(.white)
+                        .frame(width: 44, height: 44)
+                        .background(Color(hex: theme.primaryColor).opacity(0.8))
                         .clipShape(Circle())
                 }
             }
-            .padding(.top, 8)
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(hex: theme.primaryColor))
+        .cornerRadius(16)
     }
     
-    // MARK: - Group Selector
-    private var groupSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(dataStore.groups) { group in
-                    Button(action: {
-                        Task { await dataStore.switchGroup(to: group.id) }
-                    }) {
+    private var activeGroupName: String {
+        if let id = dataStore.activeGroupId,
+           let group = dataStore.groups.first(where: { $0.id == id }) {
+            return group.name
+        }
+        return "Personal"
+    }
+    
+    private var groupPickerSheet: some View {
+        NavigationStack {
+            List(dataStore.groups) { group in
+                Button(action: {
+                    Task { await dataStore.switchGroup(to: group.id) }
+                    showGroupPicker = false
+                }) {
+                    HStack {
                         Text(group.name)
-                            .font(.subheadline)
-                            .fontWeight(group.id == dataStore.activeGroupId ? .bold : .regular)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(
-                                group.id == dataStore.activeGroupId
-                                ? Color(hex: theme.primaryColor)
-                                : Color(hex: theme.cardBackground)
-                            )
-                            .foregroundColor(
-                                group.id == dataStore.activeGroupId
-                                ? .white
-                                : Color(hex: theme.textColor)
-                            )
-                            .cornerRadius(20)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20)
-                                    .stroke(Color(hex: theme.borderColor), lineWidth: 1)
-                            )
+                            .foregroundColor(Color(hex: theme.textColor))
+                        if group.id == dataStore.activeGroupId {
+                            Spacer()
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(Color(hex: theme.primaryColor))
+                        }
                     }
+                }
+            }
+            .navigationTitle("Select Group")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { showGroupPicker = false }
+                        .foregroundColor(Color(hex: theme.primaryColor))
                 }
             }
         }
     }
     
-    // MARK: - Stats
-    private var statsSection: some View {
-        LazyVGrid(columns: [
-            GridItem(.flexible()), GridItem(.flexible())
-        ], spacing: 12) {
-            StatCard(title: localizationManager.t("status.items"), count: counts.total,
-                     icon: "tray.full.fill", color: theme.primaryColor, theme: theme)
+    // MARK: - Three stat cards in a row (Fresh, Expiring, Expired)
+    private var threeStatCardsSection: some View {
+        HStack(spacing: 12) {
             StatCard(title: localizationManager.t("home.indate"), count: counts.fresh,
                      icon: "checkmark.circle.fill", color: theme.successColor, theme: theme)
             StatCard(title: localizationManager.t("status.expiringSoon"), count: counts.expiring,
                      icon: "clock.fill", color: theme.warningColor, theme: theme)
             StatCard(title: localizationManager.t("home.expired"), count: counts.expired,
                      icon: "exclamationmark.triangle.fill", color: theme.dangerColor, theme: theme)
-        }
-    }
-    
-    // MARK: - Quick Actions
-    private var quickActions: some View {
-        HStack(spacing: 12) {
-            QuickActionButton(icon: "plus.circle.fill", title: localizationManager.t("nav.add"), color: theme.primaryColor, theme: theme) {
-                showAddItem = true
-            }
-            
-            NavigationLink(destination: CategoriesManagementView()) {
-                QuickActionContent(icon: "square.grid.2x2.fill", title: localizationManager.t("nav.categories"), color: theme.tertiaryColor, theme: theme)
-            }
-            
-            NavigationLink(destination: LocationsManagementView()) {
-                QuickActionContent(icon: "mappin.circle.fill", title: localizationManager.t("nav.locations"), color: theme.secondaryColor, theme: theme)
-            }
         }
     }
     
@@ -182,27 +212,187 @@ struct DashboardView: View {
         .background(Color(hex: theme.cardBackground))
         .cornerRadius(theme.borderRadius)
     }
+}
+
+// MARK: - Storage Locations Section with Grid
+struct StorageLocationsSection: View {
+    let locations: [Location]
+    let foodItems: [FoodItem]
+    let theme: AppTheme
+    let localizationManager: LocalizationManager
     
-    // MARK: - Recent Items
-    private var recentItemsSection: some View {
+    var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Recent Items")
-                .font(.headline)
-                .foregroundColor(Color(hex: theme.textColor))
+            HStack {
+                Text(localizationManager.t("settings.manageLocations"))
+                    .font(.headline)
+                    .foregroundColor(Color(hex: theme.textColor))
+                Spacer()
+                NavigationLink(destination: LocationsManagementView()) {
+                    Image(systemName: "pencil")
+                        .font(.body)
+                        .foregroundColor(Color(hex: theme.primaryColor))
+                }
+            }
             
-            ForEach(dataStore.foodItems.prefix(5)) { item in
-                NavigationLink(destination: ItemDetailView(itemId: item.id)) {
-                    FoodItemRow(item: item, theme: theme, localizationManager: localizationManager)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(locations.prefix(6)) { location in
+                    LocationCardView(
+                        location: location,
+                        itemCount: itemCount(for: location.id),
+                        theme: theme,
+                        localizationManager: localizationManager
+                    )
                 }
             }
         }
-        .padding(16)
-        .background(Color(hex: theme.cardBackground))
-        .cornerRadius(theme.borderRadius)
+    }
+    
+    private func itemCount(for locationId: String) -> Int {
+        foodItems.filter { $0.locationId == locationId }.count
     }
 }
 
-// MARK: - Stat Card
+// MARK: - Location Card View
+struct LocationCardView: View {
+    let location: Location
+    let itemCount: Int
+    let theme: AppTheme
+    let localizationManager: LocalizationManager
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            // Icon
+            Text(location.icon ?? "📦")
+                .font(.system(size: 32))
+            
+            // Name
+            Text(resolvedName)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(Color(hex: theme.textColor))
+                .lineLimit(1)
+            
+            // Item count
+            Text("\(itemCount) \(itemCount == 1 ? "item" : "items")")
+                .font(.caption)
+                .foregroundColor(Color(hex: theme.textSecondary))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 8)
+        .background(Color(hex: theme.cardBackground))
+        .cornerRadius(theme.borderRadius)
+        .overlay(
+            RoundedRectangle(cornerRadius: theme.borderRadius)
+                .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+        )
+        .shadow(
+            color: Color(hex: theme.shadowColor),
+            radius: 4,
+            x: 0,
+            y: 2
+        )
+    }
+    
+    private var resolvedName: String {
+        if let key = location.translationKey {
+            return localizationManager.t(key)
+        }
+        return location.name
+    }
+}
+
+// MARK: - Categories Section with Grid
+struct CategoriesSection: View {
+    let categories: [Category]
+    let foodItems: [FoodItem]
+    let theme: AppTheme
+    let localizationManager: LocalizationManager
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(localizationManager.t("settings.manageCategories"))
+                    .font(.headline)
+                    .foregroundColor(Color(hex: theme.textColor))
+                Spacer()
+                NavigationLink(destination: CategoriesManagementView()) {
+                    Image(systemName: "pencil")
+                        .font(.body)
+                        .foregroundColor(Color(hex: theme.primaryColor))
+                }
+            }
+            
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(categories.prefix(6)) { category in
+                    CategoryCardView(
+                        category: category,
+                        itemCount: itemCount(for: category.id),
+                        theme: theme,
+                        localizationManager: localizationManager
+                    )
+                }
+            }
+        }
+    }
+    
+    private func itemCount(for categoryId: String) -> Int {
+        foodItems.filter { $0.categoryId == categoryId }.count
+    }
+}
+
+// MARK: - Category Card View
+struct CategoryCardView: View {
+    let category: Category
+    let itemCount: Int
+    let theme: AppTheme
+    let localizationManager: LocalizationManager
+    
+    var body: some View {
+        VStack(spacing: 8) {
+            // Icon
+            Text(category.icon ?? "🍽️")
+                .font(.system(size: 32))
+            
+            // Name
+            Text(resolvedName)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(Color(hex: theme.textColor))
+                .lineLimit(1)
+            
+            // Item count
+            Text("\(itemCount) \(itemCount == 1 ? "item" : "items")")
+                .font(.caption)
+                .foregroundColor(Color(hex: theme.textSecondary))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 8)
+        .background(Color(hex: theme.cardBackground))
+        .cornerRadius(theme.borderRadius)
+        .overlay(
+            RoundedRectangle(cornerRadius: theme.borderRadius)
+                .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+        )
+        .shadow(
+            color: Color(hex: theme.shadowColor),
+            radius: 4,
+            x: 0,
+            y: 2
+        )
+    }
+    
+    private var resolvedName: String {
+        if let key = category.translationKey {
+            return localizationManager.t(key)
+        }
+        return category.name
+    }
+}
+
+// MARK: - Stat Card (icon on top, label, then big number)
 struct StatCard: View {
     let title: String
     let count: Int
@@ -212,27 +402,23 @@ struct StatCard: View {
     
     var body: some View {
         VStack(spacing: 8) {
-            HStack {
-                Image(systemName: icon)
-                    .foregroundColor(Color(hex: color))
-                Spacer()
-                Text("\(count)")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(Color(hex: theme.textColor))
-            }
-            HStack {
-                Text(title)
-                    .font(.caption)
-                    .foregroundColor(Color(hex: theme.textSecondary))
-                Spacer()
-            }
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(Color(hex: color))
+            Text(title)
+                .font(.caption)
+                .foregroundColor(Color(hex: theme.textSecondary))
+            Text("\(count)")
+                .font(.title)
+                .fontWeight(.bold)
+                .foregroundColor(Color(hex: theme.primaryColor))
         }
-        .padding(16)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
         .background(Color(hex: theme.cardBackground))
-        .cornerRadius(theme.borderRadius)
+        .cornerRadius(12)
         .overlay(
-            RoundedRectangle(cornerRadius: theme.borderRadius)
+            RoundedRectangle(cornerRadius: 12)
                 .stroke(Color(hex: theme.borderColor), lineWidth: 1)
         )
     }

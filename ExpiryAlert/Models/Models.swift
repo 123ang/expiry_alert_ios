@@ -140,10 +140,11 @@ struct Category: Codable, Identifiable, Hashable {
     let updatedAt: String?
     
     enum CodingKeys: String, CodingKey {
-        case id, name, icon, color, section
+        case id, name, icon, color
         case groupId = "group_id"
         case translationKey = "translation_key"
         case isDefault = "is_default"
+        case section
         case sortOrder = "sort_order"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
@@ -168,10 +169,11 @@ struct Location: Codable, Identifiable, Hashable {
     let updatedAt: String?
     
     enum CodingKeys: String, CodingKey {
-        case id, name, icon, section
+        case id, name, icon
         case groupId = "group_id"
         case translationKey = "translation_key"
         case isDefault = "is_default"
+        case section
         case sortOrder = "sort_order"
         case createdAt = "created_at"
         case updatedAt = "updated_at"

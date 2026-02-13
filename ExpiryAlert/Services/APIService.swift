@@ -2,8 +2,13 @@ import Foundation
 
 // MARK: - API Configuration
 enum APIConfig {
-    // Change this to your VPS URL when deployed
+    /// API base URL. Set in Info.plist key "APIBaseURL" to override.
+    /// On Simulator, use your Mac's IP (e.g. http://192.168.1.x:3006/api), not localhost.
     static var baseURL: String {
+        if let custom = Bundle.main.object(forInfoDictionaryKey: "APIBaseURL") as? String,
+           !custom.isEmpty {
+            return custom.hasSuffix("/") ? String(custom.dropLast()) : custom
+        }
         #if DEBUG
         return "http://localhost:3006/api"
         #else

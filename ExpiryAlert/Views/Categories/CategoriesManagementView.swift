@@ -11,6 +11,7 @@ struct CategoriesManagementView: View {
     @State private var newIcon = "🍽️"
     @State private var showDeleteAlert = false
     @State private var categoryToDelete: Category?
+    @State private var showThemeSetup = false
     
     private var theme: AppTheme { themeManager.currentTheme }
     
@@ -52,6 +53,18 @@ struct CategoriesManagementView: View {
         .navigationTitle(localizationManager.t("categories.title"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: { showThemeSetup = true }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "wand.and.stars")
+                            .font(.subheadline)
+                        Text("Quick Setup")
+                            .font(.subheadline)
+                    }
+                    .foregroundColor(Color(hex: theme.primaryColor))
+                }
+            }
+            
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: {
                     editingCategory = nil
@@ -74,6 +87,9 @@ struct CategoriesManagementView: View {
                     Task { try? await dataStore.deleteCategory(id: cat.id) }
                 }
             }
+        }
+        .sheet(isPresented: $showThemeSetup) {
+            ThemeSetupModal()
         }
     }
     

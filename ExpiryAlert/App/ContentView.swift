@@ -53,74 +53,77 @@ struct SplashScreenView: View {
     }
 }
 
-// MARK: - Main Tab View
+// MARK: - Main Tab View with Custom Tab Bar
 struct MainTabView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var localizationManager: LocalizationManager
-    @State private var selectedTab: Tab = .home
-    
-    enum Tab: Int, CaseIterable {
-        case home = 0, list, calendar, settings
-        
-        var icon: String {
-            switch self {
-            case .home: return "house.fill"
-            case .list: return "list.bullet"
-            case .calendar: return "calendar"
-            case .settings: return "gearshape.fill"
-            }
-        }
-        
-        func title(using lm: LocalizationManager) -> String {
-            switch self {
-            case .home: return lm.t("nav.home")
-            case .list: return lm.t("nav.list")
-            case .calendar: return lm.t("nav.calendar")
-            case .settings: return lm.t("nav.settings")
-            }
-        }
-    }
+    @State private var selectedTab: TabItem = .home
+    @State private var showAddItem = false
     
     private var theme: AppTheme { themeManager.currentTheme }
     
     var body: some View {
-        TabView(selection: $selectedTab) {
+        ZStack(alignment: .bottom) {
+            // Main content area
+            VStack(spacing: 0) {
+                contentView
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                
+                // Spacer for tab bar height
+                Color.clear
+                    .frame(height: tabBarHeight)
+            }
+            
+            // Custom tab bar overlay
+            CustomTabBar(
+                selectedTab: $selectedTab,
+                showAddItem: $showAddItem,
+                theme: theme,
+                localizationManager: localizationManager
+            )
+        }
+        .ignoresSafeArea(.keyboard)
+        .sheet(isPresented: $showAddItem) {
+            AddItemView()
+        }
+    }
+    
+    @ViewBuilder
+    private var contentView: some View {
+        switch selectedTab {
+        case .home:
             NavigationStack {
                 DashboardView()
             }
-            .tag(Tab.home)
-            .tabItem {
-                Image(systemName: Tab.home.icon)
-                Text(Tab.home.title(using: localizationManager))
-            }
-            
+        case .list:
             NavigationStack {
                 FoodListView()
             }
-            .tag(Tab.list)
-            .tabItem {
-                Image(systemName: Tab.list.icon)
-                Text(Tab.list.title(using: localizationManager))
-            }
-            
+        case .add:
+            // Never shown, handled by sheet
+            Color.clear
+        case .calendar:
             NavigationStack {
                 CalendarScreenView()
             }
-            .tag(Tab.calendar)
-            .tabItem {
-                Image(systemName: Tab.calendar.icon)
-                Text(Tab.calendar.title(using: localizationManager))
-            }
-            
+        case .settings:
             NavigationStack {
                 SettingsView()
             }
-            .tag(Tab.settings)
-            .tabItem {
-                Image(systemName: Tab.settings.icon)
-                Text(Tab.settings.title(using: localizationManager))
-            }
         }
-        .tint(Color(hex: theme.primaryColor))
+    }
+    
+    private var tabBarHeight: CGFloat {
+        // Tab bar height: 12 (top padding) + 20 (icon) + 4 (spacing) + 12 (text) + bottom safe area
+        #if os(iOS)
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow }
+        let bottomInset = window?.safeAreaInsets.bottom ?? 0
+        return 12 + 20 + 4 + 12 + 12 + bottomInset
+        #else
+        return 60
+        #endif
     }
 }
