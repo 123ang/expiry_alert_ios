@@ -631,9 +631,8 @@ extension APIService {
     }
     
     func verifyInviteCode(code: String) async throws -> InviteVerification {
-        struct Response: Codable { let invite: InviteVerification }
-        let response: Response = try await request(endpoint: "/invitations/verify/\(code)", authenticated: false)
-        return response.invite
+        let response: InviteVerification = try await request(endpoint: "/invitations/verify/\(code)")
+        return response
     }
     
     func acceptInvitation(id: String) async throws {

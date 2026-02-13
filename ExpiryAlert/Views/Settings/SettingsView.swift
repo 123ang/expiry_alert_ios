@@ -9,181 +9,159 @@ struct SettingsView: View {
     @State private var showLanguagePicker = false
     @State private var showThemePicker = false
     @State private var showSignOutAlert = false
-    @State private var showCreateGroup = false
-    @State private var newGroupName = ""
-    @State private var createGroupError: String?
-    @State private var showCreateGroupError = false
+    @State private var showGroupsModal = false
+    @State private var showJoinGroup = false
     @State private var showClearExpiredAlert = false
     @State private var showClearUsedAlert = false
+    @State private var pendingInvitationCount = 0
     
     private var theme: AppTheme { themeManager.currentTheme }
+    private var isAuthenticated: Bool { authViewModel.isAuthenticated }
     
     var body: some View {
         ZStack {
             Color(hex: theme.backgroundColor).ignoresSafeArea()
             
-            ScrollView {
-                VStack(spacing: 16) {
-                    // Header
-                    Text(localizationManager.t("settings.title"))
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(Color(hex: theme.textColor))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 8)
-                    
-                    // Account Section
-                    SettingsSection(title: "Account", theme: theme) {
-                        if let user = authViewModel.user {
-                            HStack {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color(hex: theme.primaryColor).opacity(0.2))
-                                        .frame(width: 50, height: 50)
-                                    Text(String(user.email.prefix(1)).uppercased())
-                                        .font(.title2)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(Color(hex: theme.primaryColor))
-                                }
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(user.fullName ?? "User")
-                                        .font(.headline)
-                                        .foregroundColor(Color(hex: theme.textColor))
-                                    Text(user.email)
-                                        .font(.caption)
-                                        .foregroundColor(Color(hex: theme.textSecondary))
-                                }
-                                Spacer()
-                            }
-                        }
-                    }
-                    
-                    // Group Management
-                    SettingsSection(title: "Groups", theme: theme) {
-                        ForEach(dataStore.groups) { group in
-                            HStack {
-                                Image(systemName: "person.3.fill")
-                                    .foregroundColor(Color(hex: theme.primaryColor))
-                                Text(group.name)
-                                    .foregroundColor(Color(hex: theme.textColor))
-                                Spacer()
-                                if group.id == dataStore.activeGroupId {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundColor(Color(hex: theme.primaryColor))
-                                }
-                            }
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                Task { await dataStore.switchGroup(to: group.id) }
-                            }
-                        }
-                        
-                        Button(action: { showCreateGroup = true }) {
-                            HStack {
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundColor(Color(hex: theme.primaryColor))
-                                Text(localizationManager.t("form.createGroup"))
-                                    .foregroundColor(Color(hex: theme.primaryColor))
-                            }
-                        }
-                    }
-                    
-                    // Preferences
-                    SettingsSection(title: "Preferences", theme: theme) {
-                        settingsRow(icon: "globe", title: localizationManager.t("settings.language"),
-                                    subtitle: localizationManager.currentLanguage.displayName) {
-                            showLanguagePicker = true
-                        }
-                        settingsRow(icon: "paintpalette.fill", title: localizationManager.t("settings.theme"),
-                                    subtitle: themeManager.currentThemeType.displayName) {
-                            showThemePicker = true
-                        }
-                        
-                        NavigationLink(destination: NotificationsView()) {
-                            HStack {
-                                Image(systemName: "bell.fill")
-                                    .foregroundColor(Color(hex: theme.primaryColor))
-                                    .frame(width: 28)
-                                Text(localizationManager.t("settings.notifications"))
-                                    .foregroundColor(Color(hex: theme.textColor))
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundColor(Color(hex: theme.textSecondary))
-                            }
-                        }
-                    }
-                    
-                    // Management
-                    SettingsSection(title: "Management", theme: theme) {
-                        NavigationLink(destination: CategoriesManagementView()) {
-                            settingsRowWithDescription(
-                                icon: "square.grid.2x2.fill",
-                                title: localizationManager.t("settings.manageCategories"),
-                                description: "Organize items by category"
+            VStack(spacing: 0) {
+                // Custom Header
+                Text("Settings")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(Color(hex: theme.textColor))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .padding(.top, 50)
+                    .background(Color(hex: theme.cardBackground))
+                    .overlay(
+                        Rectangle()
+                            .fill(Color(hex: theme.borderColor))
+                            .frame(height: 1),
+                        alignment: .bottom
+                    )
+                
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        // Settings Card
+                        VStack(spacing: 0) {
+                            // Language
+                            settingsRow(
+                                icon: "globe",
+                                title: localizationManager.t("settings.language"),
+                                description: "Change app language",
+                                action: { showLanguagePicker = true }
                             )
-                        }
-                        NavigationLink(destination: LocationsManagementView()) {
-                            settingsRowWithDescription(
-                                icon: "mappin.circle.fill",
-                                title: localizationManager.t("settings.manageLocations"),
-                                description: "Manage storage locations"
+                            
+                            settingsDivider()
+                            
+                            // Account
+                            if let user = authViewModel.user {
+                                settingsRow(
+                                    icon: "person.fill",
+                                    title: "Account",
+                                    description: user.email,
+                                    action: nil,
+                                    showChevron: false
+                                )
+                                
+                                settingsDivider()
+                            }
+                            
+                            // Groups - Opens modal like in React Native
+                            settingsRow(
+                                icon: "person.3.fill",
+                                title: "Groups",
+                                description: "Manage your personal and family groups",
+                                action: { showGroupsModal = true }
                             )
-                        }
-                        
-                        Divider()
-                            .padding(.vertical, 4)
-                        
-                        Button(action: { showClearExpiredAlert = true }) {
-                            settingsRowWithDescription(
+                            
+                            settingsDivider()
+                            
+                            // Theme
+                            settingsRow(
+                                icon: "paintbrush.fill",
+                                title: localizationManager.t("settings.theme"),
+                                description: "Choose your preferred theme: \(themeManager.currentThemeType.displayName)",
+                                action: { showThemePicker = true }
+                            )
+                            
+                            settingsDivider()
+                            
+                            // Categories
+                            NavigationLink(destination: CategoriesManagementView()) {
+                                settingsRowContent(
+                                    icon: "tag.fill",
+                                    title: localizationManager.t("settings.manageCategories"),
+                                    description: "Manage food categories"
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            settingsDivider()
+                            
+                            // Storage Locations
+                            NavigationLink(destination: LocationsManagementView()) {
+                                settingsRowContent(
+                                    icon: "mappin.circle.fill",
+                                    title: localizationManager.t("settings.manageLocations"),
+                                    description: "Manage storage locations"
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            settingsDivider()
+                            
+                            // Notifications
+                            NavigationLink(destination: NotificationsView()) {
+                                settingsRowContent(
+                                    icon: "bell.fill",
+                                    title: localizationManager.t("settings.notifications"),
+                                    description: "Manage notification settings"
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            
+                            settingsDivider()
+                            
+                            // Clear Expired Items
+                            settingsRow(
                                 icon: "trash.fill",
                                 title: "Clear Expired Items",
-                                description: "Remove all expired items",
-                                iconColor: theme.warningColor
+                                description: "Remove all expired items from your inventory",
+                                action: { showClearExpiredAlert = true }
                             )
-                        }
-                        
-                        Button(action: { showClearUsedAlert = true }) {
-                            settingsRowWithDescription(
+                            
+                            settingsDivider()
+                            
+                            // Clear Used/Eaten Items
+                            settingsRow(
                                 icon: "checkmark.circle.fill",
-                                title: "Clear Used Items",
-                                description: "Remove all consumed items",
-                                iconColor: theme.successColor
+                                title: "Clear Used/Eaten Items",
+                                description: "Bulk remove items that have been consumed",
+                                action: { showClearUsedAlert = true }
                             )
                         }
-                    }
-                    
-                    // Sign Out
-                    Button(action: { showSignOutAlert = true }) {
-                        HStack {
-                            Image(systemName: "arrow.right.square")
-                            Text("Sign Out")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color(hex: theme.dangerColor).opacity(0.1))
-                        .foregroundColor(Color(hex: theme.dangerColor))
+                        .background(Color(hex: theme.cardBackground))
                         .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.top, 16)
+                        
+                        Spacer().frame(height: 100)
                     }
-                    
-                    // About
-                    VStack(spacing: 4) {
-                        Text(localizationManager.t("about.appName"))
-                            .font(.caption)
-                            .foregroundColor(Color(hex: theme.textSecondary))
-                        Text("v1.0.0 • iOS")
-                            .font(.caption2)
-                            .foregroundColor(Color(hex: theme.textSecondary))
-                    }
-                    .padding(.top, 8)
                 }
-                .padding(16)
-                .padding(.bottom, 20)
             }
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showLanguagePicker) { languagePicker }
         .sheet(isPresented: $showThemePicker) { themePicker }
+        .sheet(isPresented: $showGroupsModal) {
+            GroupsManagementModal(pendingInvitationCount: $pendingInvitationCount)
+        }
+        .sheet(isPresented: $showJoinGroup) {
+            JoinGroupView()
+        }
         .alert("Sign Out", isPresented: $showSignOutAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Sign Out", role: .destructive) {
@@ -191,27 +169,6 @@ struct SettingsView: View {
             }
         } message: {
             Text("Are you sure you want to sign out?")
-        }
-        .alert("Create Group", isPresented: $showCreateGroup) {
-            TextField("Group Name", text: $newGroupName)
-            Button("Cancel", role: .cancel) { newGroupName = "" }
-            Button("Create") {
-                Task {
-                    do {
-                        _ = try await dataStore.createGroup(name: newGroupName, description: nil)
-                        newGroupName = ""
-                        showCreateGroup = false
-                    } catch {
-                        createGroupError = error.localizedDescription
-                        showCreateGroupError = true
-                    }
-                }
-            }
-        }
-        .alert("Error", isPresented: $showCreateGroupError) {
-            Button("OK") { createGroupError = nil }
-        } message: {
-            Text(createGroupError ?? "Something went wrong")
         }
         .alert("Clear Expired Items", isPresented: $showClearExpiredAlert) {
             Button("Cancel", role: .cancel) {}
@@ -233,66 +190,105 @@ struct SettingsView: View {
         } message: {
             Text("This will remove all consumed items from your list. This action cannot be undone.")
         }
+        .task {
+            await loadPendingInvitationCount()
+        }
     }
     
-    // MARK: - Settings Row
-    private func settingsRow(icon: String, title: String, subtitle: String? = nil, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack {
-                Image(systemName: icon)
-                    .foregroundColor(Color(hex: theme.primaryColor))
-                    .frame(width: 28)
-                Text(title)
-                    .foregroundColor(Color(hex: theme.textColor))
+    // MARK: - Data Loading
+    private func loadPendingInvitationCount() async {
+        do {
+            let invitations = try await dataStore.getPendingInvitations()
+            pendingInvitationCount = invitations.count
+        } catch {
+            pendingInvitationCount = 0
+        }
+    }
+    
+    // MARK: - Settings Row with Action
+    @ViewBuilder
+    private func settingsRow(
+        icon: String,
+        title: String,
+        description: String,
+        action: (() -> Void)?,
+        showChevron: Bool = true
+    ) -> some View {
+        Button(action: { action?() }) {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(hex: theme.primaryColor).opacity(0.2))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: icon)
+                        .font(.system(size: 16))
+                        .foregroundColor(Color(hex: theme.primaryColor))
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(Color(hex: theme.textColor))
+                    Text(description)
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(hex: theme.textSecondary))
+                        .lineLimit(1)
+                }
+                
                 Spacer()
-                if let subtitle = subtitle {
-                    Text(subtitle)
-                        .font(.caption)
+                
+                if showChevron {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14))
                         .foregroundColor(Color(hex: theme.textSecondary))
                 }
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(Color(hex: theme.textSecondary))
             }
+            .padding(16)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(action == nil && !showChevron)
     }
     
-    private func settingsRowContent(icon: String, title: String) -> some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundColor(Color(hex: theme.primaryColor))
-                .frame(width: 28)
-            Text(title)
-                .foregroundColor(Color(hex: theme.textColor))
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundColor(Color(hex: theme.textSecondary))
-        }
-    }
-    
-    private func settingsRowWithDescription(icon: String, title: String, description: String, iconColor: String? = nil) -> some View {
+    // MARK: - Settings Row Content (for NavigationLink)
+    @ViewBuilder
+    private func settingsRowContent(
+        icon: String,
+        title: String,
+        description: String
+    ) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon)
-                .foregroundColor(Color(hex: iconColor ?? theme.primaryColor))
-                .frame(width: 28)
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(hex: theme.primaryColor).opacity(0.2))
+                    .frame(width: 32, height: 32)
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundColor(Color(hex: theme.primaryColor))
+            }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(Color(hex: theme.textColor))
                 Text(description)
-                    .font(.caption)
+                    .font(.system(size: 14))
                     .foregroundColor(Color(hex: theme.textSecondary))
+                    .lineLimit(1)
             }
             
             Spacer()
             
             Image(systemName: "chevron.right")
-                .font(.caption)
+                .font(.system(size: 14))
                 .foregroundColor(Color(hex: theme.textSecondary))
         }
+        .padding(16)
+    }
+    
+    private func settingsDivider() -> some View {
+        Divider()
+            .padding(.leading, 60)
     }
     
     // MARK: - Language Picker
@@ -379,30 +375,430 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Settings Section
-struct SettingsSection<Content: View>: View {
-    let title: String
-    let theme: AppTheme
-    @ViewBuilder let content: Content
+// MARK: - Groups Management Modal
+struct GroupsManagementModal: View {
+    @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var localizationManager: LocalizationManager
+    @EnvironmentObject var dataStore: DataStore
+    @EnvironmentObject var authViewModel: AuthViewModel
+    @Environment(\.dismiss) private var dismiss
+    
+    @Binding var pendingInvitationCount: Int
+    
+    @State private var showCreateGroup = false
+    @State private var newGroupName = ""
+    @State private var newGroupDescription = ""
+    @State private var showJoinGroup = false
+    @State private var errorMessage: String?
+    @State private var showError = false
+    
+    private var theme: AppTheme { themeManager.currentTheme }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(Color(hex: theme.textSecondary))
-                .textCase(.uppercase)
-            
-            VStack(spacing: 12) {
-                content
+        NavigationStack {
+            ZStack {
+                Color(hex: theme.backgroundColor).ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Header
+                        VStack(spacing: 8) {
+                            Text("👥 Manage Groups")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(Color(hex: theme.textColor))
+                            Text("Create and manage your groups")
+                                .font(.subheadline)
+                                .foregroundColor(Color(hex: theme.textSecondary))
+                        }
+                        .padding(.top, 8)
+                        
+                        // Groups List
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("YOUR GROUPS (\(dataStore.groups.count))")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(Color(hex: theme.textSecondary))
+                                .padding(.horizontal, 4)
+                            
+                            if dataStore.groups.isEmpty {
+                                VStack(spacing: 12) {
+                                    Text("No groups yet. Create your first group!")
+                                        .font(.subheadline)
+                                        .foregroundColor(Color(hex: theme.textSecondary))
+                                        .multilineTextAlignment(.center)
+                                        .padding(.vertical, 20)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .background(Color(hex: theme.cardBackground))
+                                .cornerRadius(12)
+                            } else {
+                                ForEach(dataStore.groups) { group in
+                                    NavigationLink(destination: GroupDetailView(group: group)) {
+                                        groupRow(group: group)
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                            }
+                        }
+                        
+                        // Pending Invitations
+                        NavigationLink(destination: PendingInvitationsView()) {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(Color(hex: theme.primaryColor).opacity(0.2))
+                                        .frame(width: 40, height: 40)
+                                    Image(systemName: "envelope.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(Color(hex: theme.primaryColor))
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Pending Invitations")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .foregroundColor(Color(hex: theme.textColor))
+                                }
+                                
+                                Spacer()
+                                
+                                if pendingInvitationCount > 0 {
+                                    Text("\(pendingInvitationCount)")
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background(Color(hex: theme.dangerColor))
+                                        .cornerRadius(10)
+                                }
+                                
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(Color(hex: theme.textSecondary))
+                            }
+                            .padding(12)
+                            .background(Color(hex: theme.cardBackground))
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        
+                        // Action Buttons
+                        VStack(spacing: 10) {
+                            Button(action: { showCreateGroup = true }) {
+                                Text("Create New Group")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 16)
+                                    .background(Color(hex: theme.primaryColor))
+                                    .cornerRadius(8)
+                            }
+                            
+                            Button(action: { showJoinGroup = true }) {
+                                HStack {
+                                    Image(systemName: "ticket.fill")
+                                    Text("Join with Invite Code")
+                                        .font(.system(size: 16, weight: .semibold))
+                                }
+                                .foregroundColor(Color(hex: theme.primaryColor))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Color(hex: theme.cardBackground))
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color(hex: theme.primaryColor), lineWidth: 1)
+                                )
+                            }
+                        }
+                    }
+                    .padding(16)
+                }
             }
-            .padding(16)
-            .background(Color(hex: theme.cardBackground))
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color(hex: theme.borderColor), lineWidth: 1)
-            )
+            .navigationTitle("Groups")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") { dismiss() }
+                        .foregroundColor(Color(hex: theme.primaryColor))
+                }
+            }
+            .sheet(isPresented: $showCreateGroup) {
+                CreateGroupModal(isPresented: $showCreateGroup)
+            }
+            .sheet(isPresented: $showJoinGroup) {
+                JoinGroupView()
+            }
+            .alert("Error", isPresented: $showError) {
+                Button("OK") {}
+            } message: {
+                Text(errorMessage ?? "Something went wrong")
+            }
         }
+    }
+    
+    @ViewBuilder
+    private func groupRow(group: Group) -> some View {
+        HStack(spacing: 12) {
+            // Avatar
+            ZStack {
+                Circle()
+                    .fill(Color(hex: theme.primaryColor).opacity(0.15))
+                    .frame(width: 40, height: 40)
+                Text(String(group.name.prefix(1)).uppercased())
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(Color(hex: theme.primaryColor))
+            }
+            
+            // Info
+            VStack(alignment: .leading, spacing: 2) {
+                Text(group.name)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Color(hex: theme.textColor))
+                Text(group.description ?? "No description")
+                    .font(.system(size: 14))
+                    .foregroundColor(Color(hex: theme.textSecondary))
+                    .lineLimit(1)
+            }
+            
+            Spacer()
+            
+            // Active Badge or Role
+            if group.id == dataStore.activeGroupId {
+                Text("Active")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color(hex: theme.primaryColor))
+                    .cornerRadius(10)
+            }
+            
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14))
+                .foregroundColor(Color(hex: theme.textSecondary))
+        }
+        .padding(12)
+        .background(Color(hex: theme.backgroundColor))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+        )
+    }
+    
+    // MARK: - Language Picker
+    private var languagePicker: some View {
+        NavigationStack {
+            List(AppLanguage.allCases) { language in
+                Button(action: {
+                    localizationManager.currentLanguage = language
+                    showLanguagePicker = false
+                }) {
+                    HStack {
+                        Text(language.displayName)
+                            .foregroundColor(Color(hex: theme.textColor))
+                        Spacer()
+                        if localizationManager.currentLanguage == language {
+                            Image(systemName: "checkmark")
+                                .foregroundColor(Color(hex: theme.primaryColor))
+                        }
+                    }
+                }
+            }
+            .navigationTitle(localizationManager.t("settings.language"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(localizationManager.t("common.close")) { showLanguagePicker = false }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Theme Picker
+    private var themePicker: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 12) {
+                    ForEach(ThemeType.allCases) { type in
+                        Button(action: {
+                            themeManager.setTheme(type)
+                            showThemePicker = false
+                        }) {
+                            VStack(spacing: 8) {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(hex: type.theme.backgroundColor))
+                                    .frame(height: 80)
+                                    .overlay(
+                                        VStack {
+                                            Circle()
+                                                .fill(Color(hex: type.theme.primaryColor))
+                                                .frame(width: 24, height: 24)
+                                            RoundedRectangle(cornerRadius: 4)
+                                                .fill(Color(hex: type.theme.cardBackground))
+                                                .frame(height: 20)
+                                                .padding(.horizontal, 12)
+                                        }
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(
+                                                themeManager.currentThemeType == type
+                                                ? Color(hex: type.theme.primaryColor)
+                                                : Color(hex: theme.borderColor),
+                                                lineWidth: themeManager.currentThemeType == type ? 3 : 1
+                                            )
+                                    )
+                                
+                                Text(type.displayName)
+                                    .font(.caption)
+                                    .foregroundColor(Color(hex: theme.textColor))
+                            }
+                        }
+                    }
+                }
+                .padding(16)
+            }
+            .navigationTitle(localizationManager.t("settings.theme"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(localizationManager.t("common.close")) { showThemePicker = false }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Create Group Modal
+struct CreateGroupModal: View {
+    @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var dataStore: DataStore
+    @Binding var isPresented: Bool
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var name = ""
+    @State private var description = ""
+    @State private var isCreating = false
+    @State private var errorMessage: String?
+    @State private var showError = false
+    
+    private var theme: AppTheme { themeManager.currentTheme }
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(hex: theme.backgroundColor).ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: 20) {
+                        VStack(spacing: 8) {
+                            Text("Create New Group")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(Color(hex: theme.textColor))
+                        }
+                        .padding(.top, 8)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Group Name")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(Color(hex: theme.textColor))
+                            TextField("e.g., Family, Roommates, Office", text: $name)
+                                .padding(14)
+                                .background(Color(hex: theme.cardBackground))
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+                                )
+                                .foregroundColor(Color(hex: theme.textColor))
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Description (optional)")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(Color(hex: theme.textColor))
+                            TextField("What is this group for?", text: $description, axis: .vertical)
+                                .lineLimit(3...6)
+                                .padding(14)
+                                .background(Color(hex: theme.cardBackground))
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+                                )
+                                .foregroundColor(Color(hex: theme.textColor))
+                        }
+                        
+                        HStack(spacing: 12) {
+                            Button("Cancel") {
+                                dismiss()
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(Color(hex: theme.backgroundColor))
+                            .foregroundColor(Color(hex: theme.textColor))
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+                            )
+                            
+                            Button(action: { Task { await createGroup() } }) {
+                                HStack {
+                                    if isCreating {
+                                        ProgressView().tint(.white).scaleEffect(0.8)
+                                    }
+                                    Text(isCreating ? "Creating..." : "Create")
+                                        .fontWeight(.semibold)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 16)
+                                .background(name.isEmpty ? Color(hex: theme.textSecondary) : Color(hex: theme.primaryColor))
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
+                            }
+                            .disabled(name.isEmpty || isCreating)
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding(20)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .alert("Error", isPresented: $showError) {
+                Button("OK") {}
+            } message: {
+                Text(errorMessage ?? "Something went wrong")
+            }
+        }
+    }
+    
+    private func createGroup() async {
+        isCreating = true
+        do {
+            _ = try await dataStore.createGroup(
+                name: name,
+                description: description.isEmpty ? nil : description
+            )
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+            showError = true
+        }
+        isCreating = false
     }
 }

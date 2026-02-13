@@ -218,6 +218,63 @@ class DataStore: ObservableObject {
         return group
     }
     
+    // MARK: - Group CRUD
+    func updateGroup(id: String, name: String?, description: String?) async throws -> Group {
+        let group = try await APIService.shared.updateGroup(id: id, name: name, description: description)
+        if let index = groups.firstIndex(where: { $0.id == id }) {
+            groups[index] = group
+        }
+        return group
+    }
+    
+    func deleteGroup(id: String) async throws {
+        try await APIService.shared.deleteGroup(id: id)
+        groups.removeAll { $0.id == id }
+        if activeGroupId == id {
+            activeGroupId = groups.first?.id
+            if activeGroupId != nil {
+                await loadAll()
+            }
+        }
+    }
+    
+    func getGroupMembers(groupId: String) async throws -> [GroupMembership] {
+        return try await APIService.shared.getGroupMembers(groupId: groupId)
+    }
+    
+    func removeGroupMember(groupId: String, memberId: String) async throws {
+        try await APIService.shared.removeGroupMember(groupId: groupId, memberId: memberId)
+    }
+    
+    func updateGroupMemberRole(groupId: String, memberId: String, role: String) async throws {
+        try await APIService.shared.updateGroupMemberRole(groupId: groupId, memberId: memberId, role: role)
+    }
+    
+    // MARK: - Invitations
+    func sendInvitation(groupId: String, email: String) async throws -> Invitation {
+        return try await APIService.shared.sendInvitation(groupId: groupId, email: email)
+    }
+    
+    func getPendingInvitations() async throws -> [Invitation] {
+        return try await APIService.shared.getPendingInvitations()
+    }
+    
+    func acceptInvitation(id: String) async throws {
+        try await APIService.shared.acceptInvitation(id: id)
+        // Reload groups since we joined a new one
+        await loadAll()
+    }
+    
+    func declineInvitation(id: String) async throws {
+        try await APIService.shared.declineInvitation(id: id)
+    }
+    
+    func joinGroupByCode(code: String) async throws {
+        try await APIService.shared.joinGroupByCode(code: code)
+        // Reload groups since we joined a new one
+        await loadAll()
+    }
+    
     // MARK: - Food Item CRUD
     func createFoodItem(_ data: [String: Any]) async throws -> FoodItem {
         let item = try await APIService.shared.createFoodItem(item: data)

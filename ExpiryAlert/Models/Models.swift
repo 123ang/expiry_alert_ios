@@ -108,12 +108,13 @@ struct Group: Codable, Identifiable, Hashable {
 
 struct GroupMembership: Codable, Identifiable {
     let id: String
-    let groupId: String
+    let groupId: String?
     let userId: String
     let role: String
     let joinedAt: String?
     var email: String?
     var fullName: String?
+    var avatarUrl: String?
     
     enum CodingKeys: String, CodingKey {
         case id, role, email
@@ -121,7 +122,35 @@ struct GroupMembership: Codable, Identifiable {
         case userId = "user_id"
         case joinedAt = "joined_at"
         case fullName = "full_name"
+        case avatarUrl = "avatar_url"
     }
+}
+
+// MARK: - Group with role/member count (from GET /groups response)
+struct GroupWithRole: Codable, Identifiable, Hashable {
+    let id: String
+    var name: String
+    var description: String?
+    let createdBy: String?
+    var inviteCode: String?
+    var maxMembers: Int?
+    var role: String?
+    var memberCount: Int?
+    let createdAt: String?
+    let updatedAt: String?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, role
+        case createdBy = "created_by"
+        case inviteCode = "invite_code"
+        case maxMembers = "max_members"
+        case memberCount = "member_count"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+    
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+    static func == (lhs: GroupWithRole, rhs: GroupWithRole) -> Bool { lhs.id == rhs.id }
 }
 
 // MARK: - Category
@@ -371,12 +400,15 @@ struct Invitation: Codable, Identifiable {
     let groupId: String
     let invitedBy: String
     let invitedEmail: String
-    let inviteCode: String
+    let inviteCode: String?
     let status: String
     let expiresAt: String?
     let createdAt: String?
     var groupName: String?
+    var groupDescription: String?
     var inviterName: String?
+    var invitedByName: String?
+    var invitedByEmail: String?
     
     enum CodingKeys: String, CodingKey {
         case id, status
@@ -387,27 +419,30 @@ struct Invitation: Codable, Identifiable {
         case expiresAt = "expires_at"
         case createdAt = "created_at"
         case groupName = "group_name"
+        case groupDescription = "group_description"
         case inviterName = "inviter_name"
+        case invitedByName = "invited_by_name"
+        case invitedByEmail = "invited_by_email"
     }
 }
 
 struct InviteVerification: Codable {
-    let inviteCode: String?
-    let groupId: String?
-    let groupName: String?
-    let invitedBy: String?
-    let inviterName: String?
-    let status: String?
-    let expiresAt: String?
+    let valid: Bool
+    let group: InviteVerificationGroup?
+    let error: String?
+}
+
+struct InviteVerificationGroup: Codable {
+    let id: String
+    let name: String
+    let description: String?
+    let memberCount: Int?
+    let maxMembers: Int?
     
     enum CodingKeys: String, CodingKey {
-        case status
-        case inviteCode = "invite_code"
-        case groupId = "group_id"
-        case groupName = "group_name"
-        case invitedBy = "invited_by"
-        case inviterName = "inviter_name"
-        case expiresAt = "expires_at"
+        case id, name, description
+        case memberCount = "member_count"
+        case maxMembers = "max_members"
     }
 }
 
