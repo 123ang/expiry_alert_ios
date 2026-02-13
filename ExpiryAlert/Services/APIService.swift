@@ -398,24 +398,24 @@ extension APIService {
     func getCategories(groupId: String?) async throws -> [Category] {
         var endpoint = "/categories"
         if let groupId = groupId { endpoint += "?group_id=\(groupId)" }
-        let response: ItemsResponse<Category> = try await request(endpoint: endpoint)
-        return response.items
+        let response: CategoriesResponse = try await request(endpoint: endpoint)
+        return response.categories
     }
     
     func createCategory(name: String, icon: String?, groupId: String?) async throws -> Category {
         var body: [String: Any] = ["name": name]
         if let icon = icon { body["icon"] = icon }
         if let groupId = groupId { body["group_id"] = groupId }
-        let response: SingleItemResponse<Category> = try await request(endpoint: "/categories", method: "POST", body: body)
-        return response.item
+        let response: CategorySingleResponse = try await request(endpoint: "/categories", method: "POST", body: body)
+        return response.category
     }
     
     func updateCategory(id: String, name: String?, icon: String?) async throws -> Category {
         var body: [String: Any] = [:]
         if let name = name { body["name"] = name }
         if let icon = icon { body["icon"] = icon }
-        let response: SingleItemResponse<Category> = try await request(endpoint: "/categories/\(id)", method: "PATCH", body: body)
-        return response.item
+        let response: CategorySingleResponse = try await request(endpoint: "/categories/\(id)", method: "PATCH", body: body)
+        return response.category
     }
     
     func deleteCategory(id: String) async throws {
@@ -428,24 +428,24 @@ extension APIService {
     func getLocations(groupId: String?) async throws -> [Location] {
         var endpoint = "/locations"
         if let groupId = groupId { endpoint += "?group_id=\(groupId)" }
-        let response: ItemsResponse<Location> = try await request(endpoint: endpoint)
-        return response.items
+        let response: LocationsResponse = try await request(endpoint: endpoint)
+        return response.locations
     }
     
     func createLocation(name: String, icon: String?, groupId: String?) async throws -> Location {
         var body: [String: Any] = ["name": name]
         if let icon = icon { body["icon"] = icon }
         if let groupId = groupId { body["group_id"] = groupId }
-        let response: SingleItemResponse<Location> = try await request(endpoint: "/locations", method: "POST", body: body)
-        return response.item
+        let response: LocationSingleResponse = try await request(endpoint: "/locations", method: "POST", body: body)
+        return response.location
     }
     
     func updateLocation(id: String, name: String?, icon: String?) async throws -> Location {
         var body: [String: Any] = [:]
         if let name = name { body["name"] = name }
         if let icon = icon { body["icon"] = icon }
-        let response: SingleItemResponse<Location> = try await request(endpoint: "/locations/\(id)", method: "PATCH", body: body)
-        return response.item
+        let response: LocationSingleResponse = try await request(endpoint: "/locations/\(id)", method: "PATCH", body: body)
+        return response.location
     }
     
     func deleteLocation(id: String) async throws {

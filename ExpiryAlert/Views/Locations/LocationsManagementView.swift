@@ -14,45 +14,37 @@ struct LocationsManagementView: View {
     
     private var theme: AppTheme { themeManager.currentTheme }
     
+    /// Groups locations by section (from DB) for display; preserves sort order.
+    private var locationsBySection: [(section: String, items: [Location])] {
+        var result: [(String, [Location])] = []
+        var currentSection = ""
+        var currentItems: [Location] = []
+        for loc in dataStore.locations {
+            let sec = loc.section ?? ""
+            if sec != currentSection {
+                if !currentItems.isEmpty { result.append((currentSection, currentItems)) }
+                currentSection = sec
+                currentItems = [loc]
+            } else {
+                currentItems.append(loc)
+            }
+        }
+        if !currentItems.isEmpty { result.append((currentSection, currentItems)) }
+        return result
+    }
+    
     var body: some View {
         ZStack {
             Color(hex: theme.backgroundColor).ignoresSafeArea()
             
             List {
-                ForEach(dataStore.locations) { location in
-                    HStack(spacing: 12) {
-                        Text(location.icon ?? "📍")
-                            .font(.title2)
-                            .frame(width: 44, height: 44)
-                            .background(Color(hex: theme.primaryColor).opacity(0.1))
-                            .clipShape(Circle())
-                        
-                        Text(localizationManager.getLocationName(location))
-                            .foregroundColor(Color(hex: theme.textColor))
-                        
-                        Spacer()
-                        
-                        if location.isDefault != true {
-                            Button(action: {
-                                editingLocation = location
-                                newName = location.name
-                                newIcon = location.icon ?? "📍"
-                                showAddSheet = true
-                            }) {
-                                Image(systemName: "pencil")
-                                    .foregroundColor(Color(hex: theme.primaryColor))
-                            }
-                            
-                            Button(action: {
-                                locationToDelete = location
-                                showDeleteAlert = true
-                            }) {
-                                Image(systemName: "trash")
-                                    .foregroundColor(Color(hex: theme.dangerColor))
-                            }
+                ForEach(Array(locationsBySection.enumerated()), id: \.offset) { _, pair in
+                    Section(header: sectionHeader(pair.section)) {
+                        ForEach(pair.items) { location in
+                            locationRow(location)
+                                .listRowBackground(Color(hex: theme.cardBackground))
                         }
                     }
-                    .listRowBackground(Color(hex: theme.cardBackground))
                 }
             }
             .listStyle(.plain)
@@ -71,6 +63,7 @@ struct LocationsManagementView: View {
                 }
             }
         }
+        .onAppear { Task { await dataStore.refreshLocations() } }
         .sheet(isPresented: $showAddSheet) {
             addEditSheet
         }
@@ -79,6 +72,60 @@ struct LocationsManagementView: View {
             Button(localizationManager.t("action.delete"), role: .destructive) {
                 if let loc = locationToDelete {
                     Task { try? await dataStore.deleteLocation(id: loc.id) }
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func sectionHeader(_ section: String) -> some View {
+        if section.isEmpty {
+            EmptyView()
+        } else {
+            Text(section)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(Color(hex: theme.textSecondary))
+        }
+    }
+    
+    private func locationRow(_ location: Location) -> some View {
+        HStack(spacing: 12) {
+            Text(location.icon ?? "📍")
+                .font(.title2)
+                .frame(width: 44, height: 44)
+                .background(Color(hex: theme.primaryColor).opacity(0.1))
+                .clipShape(Circle())
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(localizationManager.getLocationName(location))
+                    .foregroundColor(Color(hex: theme.textColor))
+                if location.isDefault == true {
+                    Text("Default")
+                        .font(.caption2)
+                        .foregroundColor(Color(hex: theme.textSecondary))
+                }
+            }
+            
+            Spacer()
+            
+            if location.isDefault != true {
+                Button(action: {
+                    editingLocation = location
+                    newName = location.name
+                    newIcon = location.icon ?? "📍"
+                    showAddSheet = true
+                }) {
+                    Image(systemName: "pencil")
+                        .foregroundColor(Color(hex: theme.primaryColor))
+                }
+                
+                Button(action: {
+                    locationToDelete = location
+                    showDeleteAlert = true
+                }) {
+                    Image(systemName: "trash")
+                        .foregroundColor(Color(hex: theme.dangerColor))
                 }
             }
         }
@@ -95,7 +142,21 @@ struct LocationsManagementView: View {
                         .font(.subheadline)
                         .foregroundColor(Color(hex: theme.textSecondary))
                     
-                    let emojis = ["🧊", "❄️", "🗄️", "🏠", "🍳", "📦", "🧺", "🚗", "🏢", "🌡️", "🍶", "🛒"]
+                    // Icons from DB seed + extras for custom locations
+                    let emojis = [
+                        // Kitchen
+                        "🧊", "🚪", "❄️", "🗄️", "📦", "🗃️", "🪑",
+                        // Home Storage
+                        "👔", "🛏️", "🚗", "🏠",
+                        // Bathroom
+                        "🪞", "🚰", "🚿",
+                        // Office
+                        "📚", "📁",
+                        // Travel
+                        "🎒", "🧳",
+                        // Extras
+                        "🏢", "🍳", "🧺", "🌡️", "🍶", "🛒",
+                    ]
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 8) {
                         ForEach(emojis, id: \.self) { emoji in
                             Button(action: { newIcon = emoji }) {

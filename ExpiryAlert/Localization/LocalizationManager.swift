@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 enum AppLanguage: String, CaseIterable, Identifiable {
     case en = "en"

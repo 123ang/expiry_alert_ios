@@ -142,7 +142,23 @@ struct CategoriesManagementView: View {
                         .font(.subheadline)
                         .foregroundColor(Color(hex: theme.textSecondary))
                     
-                    let emojis = ["🍎", "🥦", "🥩", "🧀", "🍞", "🐟", "🍰", "🍿", "🥗", "🍜", "🥚", "🌽", "🍕", "🍔", "🌮", "🍱"]
+                    // Icons from DB seed + extras for custom categories
+                    let emojis = [
+                        // Food & Drinks
+                        "🥬", "🍱", "🍪", "🥤", "🧊", "🥛", "🥩", "🍎", "🥕", "🍞", "🫙", "🧂", "🥫", "🍼",
+                        // Health
+                        "💊", "💉", "🩹", "🩺",
+                        // Personal Care
+                        "🧴", "💄", "💇", "🧼", "🌸", "🪥",
+                        // Home
+                        "🧹", "🧺", "📦", "🔋", "💡", "💨",
+                        // Documents
+                        "🛂", "📇", "🪪", "📋", "📄", "🧾", "📑", "📜", "🎫",
+                        // Pets
+                        "🐕", "🦴",
+                        // Others & extras
+                        "📱", "✏️", "🍕", "🍔", "🌮", "🥗", "🍜", "🥚", "🌽", "🍰", "🍿", "🐟",
+                    ]
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 8) {
                         ForEach(emojis, id: \.self) { emoji in
                             Button(action: { newIcon = emoji }) {

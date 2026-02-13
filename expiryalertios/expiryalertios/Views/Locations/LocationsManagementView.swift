@@ -142,7 +142,21 @@ struct LocationsManagementView: View {
                         .font(.subheadline)
                         .foregroundColor(Color(hex: theme.textSecondary))
                     
-                    let emojis = ["🧊", "❄️", "🗄️", "🏠", "🍳", "📦", "🧺", "🚗", "🏢", "🌡️", "🍶", "🛒"]
+                    // Icons from DB seed + extras for custom locations
+                    let emojis = [
+                        // Kitchen
+                        "🧊", "🚪", "❄️", "🗄️", "📦", "🗃️", "🪑",
+                        // Home Storage
+                        "👔", "🛏️", "🚗", "🏠",
+                        // Bathroom
+                        "🪞", "🚰", "🚿",
+                        // Office
+                        "📚", "📁",
+                        // Travel
+                        "🎒", "🧳",
+                        // Extras
+                        "🏢", "🍳", "🧺", "🌡️", "🍶", "🛒",
+                    ]
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 8) {
                         ForEach(emojis, id: \.self) { emoji in
                             Button(action: { newIcon = emoji }) {

@@ -14,45 +14,37 @@ struct CategoriesManagementView: View {
     
     private var theme: AppTheme { themeManager.currentTheme }
     
+    /// Groups categories by section (from DB) for display; preserves sort order.
+    private var categoriesBySection: [(section: String, items: [Category])] {
+        var result: [(String, [Category])] = []
+        var currentSection = ""
+        var currentItems: [Category] = []
+        for c in dataStore.categories {
+            let sec = c.section ?? ""
+            if sec != currentSection {
+                if !currentItems.isEmpty { result.append((currentSection, currentItems)) }
+                currentSection = sec
+                currentItems = [c]
+            } else {
+                currentItems.append(c)
+            }
+        }
+        if !currentItems.isEmpty { result.append((currentSection, currentItems)) }
+        return result
+    }
+    
     var body: some View {
         ZStack {
             Color(hex: theme.backgroundColor).ignoresSafeArea()
             
             List {
-                ForEach(dataStore.categories) { category in
-                    HStack(spacing: 12) {
-                        Text(category.icon ?? "🍽️")
-                            .font(.title2)
-                            .frame(width: 44, height: 44)
-                            .background(Color(hex: theme.primaryColor).opacity(0.1))
-                            .clipShape(Circle())
-                        
-                        Text(localizationManager.getCategoryName(category))
-                            .foregroundColor(Color(hex: theme.textColor))
-                        
-                        Spacer()
-                        
-                        if category.isDefault != true {
-                            Button(action: {
-                                editingCategory = category
-                                newName = category.name
-                                newIcon = category.icon ?? "🍽️"
-                                showAddSheet = true
-                            }) {
-                                Image(systemName: "pencil")
-                                    .foregroundColor(Color(hex: theme.primaryColor))
-                            }
-                            
-                            Button(action: {
-                                categoryToDelete = category
-                                showDeleteAlert = true
-                            }) {
-                                Image(systemName: "trash")
-                                    .foregroundColor(Color(hex: theme.dangerColor))
-                            }
+                ForEach(Array(categoriesBySection.enumerated()), id: \.offset) { _, pair in
+                    Section(header: sectionHeader(pair.section)) {
+                        ForEach(pair.items) { category in
+                            categoryRow(category)
+                                .listRowBackground(Color(hex: theme.cardBackground))
                         }
                     }
-                    .listRowBackground(Color(hex: theme.cardBackground))
                 }
             }
             .listStyle(.plain)
@@ -74,11 +66,66 @@ struct CategoriesManagementView: View {
         .sheet(isPresented: $showAddSheet) {
             addEditSheet
         }
+        .onAppear { Task { await dataStore.refreshCategories() } }
         .alert(localizationManager.t("action.delete"), isPresented: $showDeleteAlert) {
             Button(localizationManager.t("common.cancel"), role: .cancel) {}
             Button(localizationManager.t("action.delete"), role: .destructive) {
                 if let cat = categoryToDelete {
                     Task { try? await dataStore.deleteCategory(id: cat.id) }
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func sectionHeader(_ section: String) -> some View {
+        if section.isEmpty {
+            EmptyView()
+        } else {
+            Text(section)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(Color(hex: theme.textSecondary))
+        }
+    }
+    
+    private func categoryRow(_ category: Category) -> some View {
+        HStack(spacing: 12) {
+            Text(category.icon ?? "🍽️")
+                .font(.title2)
+                .frame(width: 44, height: 44)
+                .background(Color(hex: theme.primaryColor).opacity(0.1))
+                .clipShape(Circle())
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(localizationManager.getCategoryName(category))
+                    .foregroundColor(Color(hex: theme.textColor))
+                if category.isDefault == true {
+                    Text("Default")
+                        .font(.caption2)
+                        .foregroundColor(Color(hex: theme.textSecondary))
+                }
+            }
+            
+            Spacer()
+            
+            if category.isDefault != true {
+                Button(action: {
+                    editingCategory = category
+                    newName = category.name
+                    newIcon = category.icon ?? "🍽️"
+                    showAddSheet = true
+                }) {
+                    Image(systemName: "pencil")
+                        .foregroundColor(Color(hex: theme.primaryColor))
+                }
+                
+                Button(action: {
+                    categoryToDelete = category
+                    showDeleteAlert = true
+                }) {
+                    Image(systemName: "trash")
+                        .foregroundColor(Color(hex: theme.dangerColor))
                 }
             }
         }
@@ -95,7 +142,23 @@ struct CategoriesManagementView: View {
                         .font(.subheadline)
                         .foregroundColor(Color(hex: theme.textSecondary))
                     
-                    let emojis = ["🍎", "🥦", "🥩", "🧀", "🍞", "🐟", "🍰", "🍿", "🥗", "🍜", "🥚", "🌽", "🍕", "🍔", "🌮", "🍱"]
+                    // Icons from DB seed + extras for custom categories
+                    let emojis = [
+                        // Food & Drinks
+                        "🥬", "🍱", "🍪", "🥤", "🧊", "🥛", "🥩", "🍎", "🥕", "🍞", "🫙", "🧂", "🥫", "🍼",
+                        // Health
+                        "💊", "💉", "🩹", "🩺",
+                        // Personal Care
+                        "🧴", "💄", "💇", "🧼", "🌸", "🪥",
+                        // Home
+                        "🧹", "🧺", "📦", "🔋", "💡", "💨",
+                        // Documents
+                        "🛂", "📇", "🪪", "📋", "📄", "🧾", "📑", "📜", "🎫",
+                        // Pets
+                        "🐕", "🦴",
+                        // Others & extras
+                        "📱", "✏️", "🍕", "🍔", "🌮", "🥗", "🍜", "🥚", "🌽", "🍰", "🍿", "🐟",
+                    ]
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 8) {
                         ForEach(emojis, id: \.self) { emoji in
                             Button(action: { newIcon = emoji }) {
