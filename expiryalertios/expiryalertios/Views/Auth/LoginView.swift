@@ -7,11 +7,14 @@ struct LoginView: View {
     
     @State private var email = ""
     @State private var password = ""
+    @State private var confirmPassword = ""
     @State private var fullName = ""
     @State private var isSignUp = false
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var isSubmitting = false
+    @State private var showPassword = false
+    @State private var showConfirmPassword = false
     
     private var theme: AppTheme { themeManager.currentTheme }
     
@@ -57,9 +60,47 @@ struct LoginView: View {
                             .autocapitalization(.none)
                             .keyboardType(.emailAddress)
                         
-                        SecureField("Password", text: $password)
+                        // Password with eye toggle
+                        HStack {
+                            ZStack {
+                                if showPassword {
+                                    TextField("Password", text: $password)
+                                        .textContentType(isSignUp ? .newPassword : .password)
+                                        .autocapitalization(.none)
+                                } else {
+                                    SecureField("Password", text: $password)
+                                        .textContentType(isSignUp ? .newPassword : .password)
+                                }
+                            }
                             .textFieldStyle(ThemedTextFieldStyle(theme: theme))
-                            .textContentType(isSignUp ? .newPassword : .password)
+                            Button(action: { showPassword.toggle() }) {
+                                Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                                    .foregroundColor(Color(hex: theme.textSecondary))
+                                    .frame(width: 44, height: 44)
+                            }
+                        }
+                        
+                        if isSignUp {
+                            // Confirm Password with eye toggle
+                            HStack {
+                                ZStack {
+                                    if showConfirmPassword {
+                                        TextField("Confirm Password", text: $confirmPassword)
+                                            .textContentType(.newPassword)
+                                            .autocapitalization(.none)
+                                    } else {
+                                        SecureField("Confirm Password", text: $confirmPassword)
+                                            .textContentType(.newPassword)
+                                    }
+                                }
+                                .textFieldStyle(ThemedTextFieldStyle(theme: theme))
+                                Button(action: { showConfirmPassword.toggle() }) {
+                                    Image(systemName: showConfirmPassword ? "eye.slash.fill" : "eye.fill")
+                                        .foregroundColor(Color(hex: theme.textSecondary))
+                                        .frame(width: 44, height: 44)
+                                }
+                            }
+                        }
                     }
                     .padding(.horizontal, 20)
                     
@@ -94,6 +135,9 @@ struct LoginView: View {
                 }
             }
         }
+        .onChange(of: isSignUp) { _, newValue in
+            if !newValue { confirmPassword = "" }
+        }
         .alert("Error", isPresented: $showError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -107,6 +151,19 @@ struct LoginView: View {
             errorMessage = "Please fill in all fields"
             showError = true
             return
+        }
+        
+        if isSignUp {
+            guard !confirmPassword.isEmpty else {
+                errorMessage = "Please confirm your password"
+                showError = true
+                return
+            }
+            guard password == confirmPassword else {
+                errorMessage = "Passwords do not match"
+                showError = true
+                return
+            }
         }
         
         isSubmitting = true

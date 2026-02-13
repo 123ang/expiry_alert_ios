@@ -60,16 +60,23 @@ class DataStore: ObservableObject {
                 activeGroupId = first.id
             }
             
-            // Load group-specific data
+            // Load group-specific data; merge default categories/locations (from DB, is_default=true) with group's custom ones.
+            // Backend: GET /categories and GET /locations with no group_id should return default rows; with group_id return group's. If your API only supports group_id, have the backend return defaults + group's in one response and we can simplify to a single call.
             if let groupId = activeGroupId {
-                async let cats = APIService.shared.getCategories(groupId: groupId)
-                async let locs = APIService.shared.getLocations(groupId: groupId)
+                async let defaultCats = APIService.shared.getCategories(groupId: nil)
+                async let groupCats = APIService.shared.getCategories(groupId: groupId)
+                async let defaultLocs = APIService.shared.getLocations(groupId: nil)
+                async let groupLocs = APIService.shared.getLocations(groupId: groupId)
                 async let items = APIService.shared.getFoodItems(groupId: groupId)
                 async let shopping = APIService.shared.getShoppingItems(groupId: groupId)
                 async let wishes = APIService.shared.getWishItems(groupId: groupId)
                 
-                categories = try await cats
-                locations = try await locs
+                let dCats = (try? await defaultCats) ?? []
+                let gCats = (try? await groupCats) ?? []
+                let dLocs = (try? await defaultLocs) ?? []
+                let gLocs = (try? await groupLocs) ?? []
+                categories = DataStore.mergeDefaultsWithGroup(defaults: dCats, groupItems: gCats)
+                locations = DataStore.mergeDefaultsWithGroup(defaults: dLocs, groupItems: gLocs)
                 foodItems = try await items
                 shoppingItems = try await shopping
                 wishItems = try await wishes
@@ -94,7 +101,9 @@ class DataStore: ObservableObject {
     func refreshCategories() async {
         guard let groupId = activeGroupId else { return }
         do {
-            categories = try await APIService.shared.getCategories(groupId: groupId)
+            let dCats = (try? await APIService.shared.getCategories(groupId: nil)) ?? []
+            let gCats = try await APIService.shared.getCategories(groupId: groupId)
+            categories = DataStore.mergeDefaultsWithGroup(defaults: dCats, groupItems: gCats)
         } catch {
             self.error = error.localizedDescription
         }
@@ -103,10 +112,62 @@ class DataStore: ObservableObject {
     func refreshLocations() async {
         guard let groupId = activeGroupId else { return }
         do {
-            locations = try await APIService.shared.getLocations(groupId: groupId)
+            let dLocs = (try? await APIService.shared.getLocations(groupId: nil)) ?? []
+            let gLocs = try await APIService.shared.getLocations(groupId: groupId)
+            locations = DataStore.mergeDefaultsWithGroup(defaults: dLocs, groupItems: gLocs)
         } catch {
             self.error = error.localizedDescription
         }
+    }
+    
+    /// Merges default categories with group's; no duplicate ids. Sorted: defaults first, then by sort_order, then by name.
+    private static func mergeDefaultsWithGroup(defaults: [Category], groupItems: [Category]) -> [Category] {
+        var seen = Set<String>()
+        var result: [Category] = []
+        for d in defaults {
+            seen.insert(d.id)
+            result.append(d)
+        }
+        for g in groupItems {
+            if seen.contains(g.id) { continue }
+            seen.insert(g.id)
+            result.append(g)
+        }
+        result.sort { a, b in
+            let aDef = a.isDefault == true
+            let bDef = b.isDefault == true
+            if aDef != bDef { return aDef }
+            let aOrder = a.sortOrder ?? Int.max
+            let bOrder = b.sortOrder ?? Int.max
+            if aOrder != bOrder { return aOrder < bOrder }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
+        return result
+    }
+    
+    /// Merges default locations with group's; no duplicate ids. Sorted: defaults first, then by sort_order, then by name.
+    private static func mergeDefaultsWithGroup(defaults: [Location], groupItems: [Location]) -> [Location] {
+        var seen = Set<String>()
+        var result: [Location] = []
+        for d in defaults {
+            seen.insert(d.id)
+            result.append(d)
+        }
+        for g in groupItems {
+            if seen.contains(g.id) { continue }
+            seen.insert(g.id)
+            result.append(g)
+        }
+        result.sort { a, b in
+            let aDef = a.isDefault == true
+            let bDef = b.isDefault == true
+            if aDef != bDef { return aDef }
+            let aOrder = a.sortOrder ?? Int.max
+            let bOrder = b.sortOrder ?? Int.max
+            if aOrder != bOrder { return aOrder < bOrder }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
+        return result
     }
     
     func refreshShoppingItems() async {

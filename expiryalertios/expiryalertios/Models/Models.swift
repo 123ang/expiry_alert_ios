@@ -133,6 +133,9 @@ struct Category: Codable, Identifiable, Hashable {
     var color: String?
     var translationKey: String?
     var isDefault: Bool?
+    /// Display group (e.g. "Food & Drinks", "Health") for default categories
+    var section: String?
+    var sortOrder: Int?
     let createdAt: String?
     let updatedAt: String?
     
@@ -141,6 +144,8 @@ struct Category: Codable, Identifiable, Hashable {
         case groupId = "group_id"
         case translationKey = "translation_key"
         case isDefault = "is_default"
+        case section
+        case sortOrder = "sort_order"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
@@ -157,6 +162,9 @@ struct Location: Codable, Identifiable, Hashable {
     var icon: String?
     var translationKey: String?
     var isDefault: Bool?
+    /// Display group (e.g. "Kitchen", "Home Storage") for default locations
+    var section: String?
+    var sortOrder: Int?
     let createdAt: String?
     let updatedAt: String?
     
@@ -165,6 +173,8 @@ struct Location: Codable, Identifiable, Hashable {
         case groupId = "group_id"
         case translationKey = "translation_key"
         case isDefault = "is_default"
+        case section
+        case sortOrder = "sort_order"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
@@ -570,6 +580,28 @@ struct ComprehensiveAnalytics: Codable {
 // MARK: - API Response Wrappers
 struct ItemsResponse<T: Codable>: Codable {
     let items: [T]
+}
+
+/// API returns { "categories": [...] } for GET /categories
+struct CategoriesResponse: Codable {
+    let categories: [Category]
+}
+
+/// API returns { "locations": [...] } for GET /locations
+struct LocationsResponse: Codable {
+    let locations: [Location]
+}
+
+/// API returns { "message", "category" } for POST/PATCH category
+struct CategorySingleResponse: Codable {
+    let message: String?
+    let category: Category
+}
+
+/// API returns { "message", "location" } for POST/PATCH location
+struct LocationSingleResponse: Codable {
+    let message: String?
+    let location: Location
 }
 
 struct SingleItemResponse<T: Codable>: Codable {

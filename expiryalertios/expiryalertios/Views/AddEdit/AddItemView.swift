@@ -25,6 +25,118 @@ struct AddItemView: View {
     private var theme: AppTheme { themeManager.currentTheme }
     private var isEditing: Bool { editingItem != nil }
     
+    @ViewBuilder
+    private var categorySelectionContent: some View {
+        if dataStore.categories.isEmpty {
+            emptySelectionBox(
+                message: "No categories yet. Go to Settings → Manage Categories to add.",
+                theme: theme
+            )
+        } else {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 8) {
+                // "None" option
+                Button(action: { selectedCategoryId = nil }) {
+                    VStack(spacing: 4) {
+                        Text("—")
+                            .font(.title2)
+                        Text("None")
+                            .font(.caption)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(8)
+                    .background(
+                        selectedCategoryId == nil
+                        ? Color(hex: theme.primaryColor).opacity(0.15)
+                        : Color(hex: theme.cardBackground)
+                    )
+                    .foregroundColor(Color(hex: theme.textColor))
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(
+                                selectedCategoryId == nil
+                                ? Color(hex: theme.primaryColor)
+                                : Color(hex: theme.borderColor),
+                                lineWidth: 1
+                            )
+                    )
+                }
+                ForEach(dataStore.categories) { category in
+                    Button(action: { selectedCategoryId = category.id }) {
+                        VStack(spacing: 4) {
+                            Text(category.icon ?? "🍽️")
+                                .font(.title2)
+                            Text(localizationManager.getCategoryName(category))
+                                .font(.caption)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(8)
+                        .background(
+                            selectedCategoryId == category.id
+                            ? Color(hex: theme.primaryColor).opacity(0.15)
+                            : Color(hex: theme.cardBackground)
+                        )
+                        .foregroundColor(Color(hex: theme.textColor))
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(
+                                    selectedCategoryId == category.id
+                                    ? Color(hex: theme.primaryColor)
+                                    : Color(hex: theme.borderColor),
+                                    lineWidth: 1
+                                )
+                        )
+                    }
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var locationSelectionContent: some View {
+        if dataStore.locations.isEmpty {
+            emptySelectionBox(
+                message: "No locations yet. Go to Settings → Manage Locations to add.",
+                theme: theme
+            )
+        } else {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 8) {
+                ForEach(dataStore.locations) { location in
+                    Button(action: { selectedLocationId = location.id }) {
+                        VStack(spacing: 4) {
+                            Text(location.icon ?? "📍")
+                                .font(.title2)
+                            Text(localizationManager.getLocationName(location))
+                                .font(.caption)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(8)
+                        .background(
+                            selectedLocationId == location.id
+                            ? Color(hex: theme.primaryColor).opacity(0.15)
+                            : Color(hex: theme.cardBackground)
+                        )
+                        .foregroundColor(Color(hex: theme.textColor))
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(
+                                    selectedLocationId == location.id
+                                    ? Color(hex: theme.primaryColor)
+                                    : Color(hex: theme.borderColor),
+                                    lineWidth: 1
+                                )
+                        )
+                    }
+                }
+            }
+        }
+    }
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -74,72 +186,12 @@ struct AddItemView: View {
                         
                         // Category
                         FormField(label: localizationManager.t("addItem.category"), theme: theme) {
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 8) {
-                                ForEach(dataStore.categories) { category in
-                                    Button(action: { selectedCategoryId = category.id }) {
-                                        VStack(spacing: 4) {
-                                            Text(category.icon ?? "🍽️")
-                                                .font(.title2)
-                                            Text(localizationManager.getCategoryName(category))
-                                                .font(.caption)
-                                                .lineLimit(1)
-                                        }
-                                        .frame(maxWidth: .infinity)
-                                        .padding(8)
-                                        .background(
-                                            selectedCategoryId == category.id
-                                            ? Color(hex: theme.primaryColor).opacity(0.15)
-                                            : Color(hex: theme.cardBackground)
-                                        )
-                                        .foregroundColor(Color(hex: theme.textColor))
-                                        .cornerRadius(8)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .stroke(
-                                                    selectedCategoryId == category.id
-                                                    ? Color(hex: theme.primaryColor)
-                                                    : Color(hex: theme.borderColor),
-                                                    lineWidth: 1
-                                                )
-                                        )
-                                    }
-                                }
-                            }
+                            categorySelectionContent
                         }
                         
                         // Location
                         FormField(label: localizationManager.t("addItem.storageLocation"), theme: theme) {
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 8) {
-                                ForEach(dataStore.locations) { location in
-                                    Button(action: { selectedLocationId = location.id }) {
-                                        VStack(spacing: 4) {
-                                            Text(location.icon ?? "📍")
-                                                .font(.title2)
-                                            Text(localizationManager.getLocationName(location))
-                                                .font(.caption)
-                                                .lineLimit(1)
-                                        }
-                                        .frame(maxWidth: .infinity)
-                                        .padding(8)
-                                        .background(
-                                            selectedLocationId == location.id
-                                            ? Color(hex: theme.primaryColor).opacity(0.15)
-                                            : Color(hex: theme.cardBackground)
-                                        )
-                                        .foregroundColor(Color(hex: theme.textColor))
-                                        .cornerRadius(8)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .stroke(
-                                                    selectedLocationId == location.id
-                                                    ? Color(hex: theme.primaryColor)
-                                                    : Color(hex: theme.borderColor),
-                                                    lineWidth: 1
-                                                )
-                                        )
-                                    }
-                                }
-                            }
+                            locationSelectionContent
                         }
                         
                         // Expiry Date
@@ -204,6 +256,22 @@ struct AddItemView: View {
                 Text(errorMessage)
             }
         }
+    }
+    
+    private func emptySelectionBox(message: String, theme: AppTheme) -> some View {
+        Text(message)
+            .font(.subheadline)
+            .foregroundColor(Color(hex: theme.textSecondary))
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 56)
+            .padding(12)
+            .background(Color(hex: theme.cardBackground))
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+            )
     }
     
     private func setupInitialValues() {

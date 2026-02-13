@@ -106,6 +106,8 @@ Access token expires in ~15 minutes; use refresh token to get a new access token
 | PATCH | `https://api.expiry-alert.link/api/categories/:id` | Update category. Body: `{ name?, icon?, color? }`. Returns `{ message, category }`. |
 | DELETE | `https://api.expiry-alert.link/api/categories/:id` | Delete category. Returns `{ message }`. |
 
+**Category object:** `id`, `group_id?`, `name`, `icon?`, `color?`, `translation_key?`, `is_default?`, `section?`, `sort_order?`, `created_at?`, `updated_at?`. For default (seed) categories, `section` groups display (e.g. `"Food & Drinks"`, `"Health"`) and `sort_order` defines order within section.
+
 ---
 
 ## 7. Locations — `/api/locations` (auth required)
@@ -117,6 +119,8 @@ Access token expires in ~15 minutes; use refresh token to get a new access token
 | POST | `https://api.expiry-alert.link/api/locations` | Create location. Body: `{ group_id, name, icon? }`. Returns `{ message, location }`. |
 | PATCH | `https://api.expiry-alert.link/api/locations/:id` | Update location. Body: `{ name?, icon? }`. Returns `{ message, location }`. |
 | DELETE | `https://api.expiry-alert.link/api/locations/:id` | Delete location. Returns `{ message }`. |
+
+**Location object:** `id`, `group_id?`, `name`, `icon?`, `translation_key?`, `is_default?`, `section?`, `sort_order?`, `created_at?`, `updated_at?`. For default (seed) locations, `section` groups display (e.g. `"Kitchen"`, `"Home Storage"`) and `sort_order` defines order within section.
 
 ---
 

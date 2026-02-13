@@ -58,14 +58,16 @@ struct MainTabView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var localizationManager: LocalizationManager
     @State private var selectedTab: Tab = .home
+    @State private var showAddItem = false
     
     enum Tab: Int, CaseIterable {
-        case home = 0, list, calendar, settings
+        case home = 0, list, add, calendar, settings
         
         var icon: String {
             switch self {
             case .home: return "house.fill"
             case .list: return "list.bullet"
+            case .add: return "plus"
             case .calendar: return "calendar"
             case .settings: return "gearshape.fill"
             }
@@ -75,6 +77,7 @@ struct MainTabView: View {
             switch self {
             case .home: return lm.t("nav.home")
             case .list: return lm.t("nav.list")
+            case .add: return ""
             case .calendar: return lm.t("nav.calendar")
             case .settings: return lm.t("nav.settings")
             }
@@ -103,6 +106,12 @@ struct MainTabView: View {
                 Text(Tab.list.title(using: localizationManager))
             }
             
+            Color.clear
+                .tag(Tab.add)
+                .tabItem {
+                    Image(systemName: "plus")
+                }
+            
             NavigationStack {
                 CalendarScreenView()
             }
@@ -122,5 +131,14 @@ struct MainTabView: View {
             }
         }
         .tint(Color(hex: theme.primaryColor))
+        .onChange(of: selectedTab) { _, newValue in
+            if newValue == .add {
+                showAddItem = true
+                selectedTab = .list
+            }
+        }
+        .sheet(isPresented: $showAddItem) {
+            AddItemView()
+        }
     }
 }
