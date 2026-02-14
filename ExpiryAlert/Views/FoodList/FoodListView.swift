@@ -16,8 +16,21 @@ struct FoodListView: View {
     @State private var showAddToInventorySheet = false
     @State private var shoppingItemToEdit: ShoppingItem?
     @State private var wishlistItemToEdit: WishItem?
+    @State private var showClearCompletedDialog = false
+    @State private var showClearCompletedWarningAlert = false
+    /// nil = All, 1...5 = filter by that desire level (flames).
+    @State private var wishlistRatingFilter: Int? = nil
+    /// When false, filter chips are always shown; when true, collapsed to a single row (user choice, persisted).
+    @State private var wishlistFiltersCollapsed: Bool = UserDefaults.standard.object(forKey: Self.wishlistFiltersCollapsedKey) as? Bool ?? false
 
     private var theme: AppTheme { themeManager.currentTheme }
+
+    private static let lastWishlistCurrencyKey = "lastWishlistCurrencyCode"
+    private static let wishlistFiltersCollapsedKey = "wishlistFiltersCollapsed"
+
+    private var purchasedShoppingItems: [ShoppingItem] {
+        visibleShoppingItems.filter { $0.isPurchased }
+    }
 
     enum ListMode: String, CaseIterable {
         case shopping
@@ -26,9 +39,14 @@ struct FoodListView: View {
 
     // MARK: - Filtered & grouped data
 
+    /// Exclude items already added to inventory (they are removed from the shopping list).
+    private var visibleShoppingItems: [ShoppingItem] {
+        dataStore.shoppingItems.filter { $0.movedToInventory != true }
+    }
+
     /// Filter by All/Active/Bought and optional category; then optionally by store.
     private var filteredShoppingItems: [ShoppingItem] {
-        var list = dataStore.shoppingItems
+        var list = visibleShoppingItems
         switch shoppingFilter {
         case .all: break
         case .active: list = list.filter { !$0.isPurchased }
@@ -52,7 +70,7 @@ struct FoodListView: View {
 
     /// Items filtered by All/Active/Bought and category only (no store filter), for building store dropdown.
     private var filteredShoppingItemsWithoutStoreFilter: [ShoppingItem] {
-        var list = dataStore.shoppingItems
+        var list = visibleShoppingItems
         switch shoppingFilter {
         case .all: break
         case .active: list = list.filter { !$0.isPurchased }
@@ -78,6 +96,23 @@ struct FoodListView: View {
     /// Wishlist sorted by desire level descending for quick prioritization.
     private var sortedWishItems: [WishItem] {
         dataStore.wishItems.sorted { $0.desireLevel > $1.desireLevel }
+    }
+
+    /// Wishlist items filtered by rating (1–5 flames); nil = show all.
+    private var filteredWishItems: [WishItem] {
+        guard let level = wishlistRatingFilter else { return sortedWishItems }
+        return sortedWishItems.filter { $0.desireLevel == level }
+    }
+
+    /// Sum of prices for filtered wishlist items (no currency conversion; for display only).
+    private var wishlistTotalAmount: Double {
+        filteredWishItems.compactMap(\.price).reduce(0, +)
+    }
+
+    /// Currency symbol for total display (user's last-used wishlist currency).
+    private var wishlistTotalCurrencySymbol: String {
+        let code = UserDefaults.standard.string(forKey: Self.lastWishlistCurrencyKey) ?? "USD"
+        return CurrencyOption.symbol(for: code)
     }
 
     private func categoryDisplayName(categoryId: String?) -> String {
@@ -165,52 +200,80 @@ struct FoodListView: View {
 
     // MARK: - Shopping filters + store dropdown
 
-    /// Filter pills (All / Active / Bought) and "All stores" dropdown for location-based shopping.
+    /// Filter pills (All / Active / Bought) and store/category dropdowns in one card.
     private var shoppingFiltersAndStoreBar: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
             FilterPills(selected: $shoppingFilter)
                 .environmentObject(themeManager)
                 .environmentObject(localizationManager)
 
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Menu {
                     Button(localizationManager.t("list.allStores")) { selectedStoreKey = nil }
                     ForEach(storeFilterOptionKeys, id: \.self) { store in
                         Button(store) { selectedStoreKey = store }
                     }
                 } label: {
-                    HStack(spacing: 4) {
-                        Text(selectedStoreKey ?? localizationManager.t("list.allStores"))
+                    HStack(spacing: 6) {
+                        Image(systemName: "storefront")
                             .font(.caption)
+                            .foregroundColor(Color(hex: theme.primaryColor))
+                        Text(selectedStoreKey ?? localizationManager.t("list.allStores"))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
                             .foregroundColor(Color(hex: theme.textColor))
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
                         Image(systemName: "chevron.down")
-                            .font(.caption2)
+                            .font(.caption.weight(.semibold))
                             .foregroundColor(Color(hex: theme.textSecondary))
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity)
                     .background(Color(hex: theme.cardBackground))
-                    .cornerRadius(8)
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(hex: theme.borderColor).opacity(0.6), lineWidth: 1)
+                    )
                 }
+                .buttonStyle(PlainButtonStyle())
+
                 Menu {
                     Button(localizationManager.t("list.allCategories")) { selectedCategoryFilterId = nil }
                     ForEach(localizationManager.deduplicatedCategories(dataStore.visibleDisplayCategories)) { cat in
                         Button(localizationManager.getCategoryName(cat)) { selectedCategoryFilterId = cat.id }
                     }
                 } label: {
-                    HStack(spacing: 4) {
-                        Text(selectedCategoryFilterId == nil ? localizationManager.t("list.allCategories") : categoryDisplayName(categoryId: selectedCategoryFilterId))
+                    HStack(spacing: 6) {
+                        Image(systemName: "tag")
                             .font(.caption)
-                            .foregroundColor(Color(hex: theme.textSecondary))
+                            .foregroundColor(Color(hex: theme.primaryColor))
+                        Text(selectedCategoryFilterId == nil ? localizationManager.t("list.allCategories") : categoryDisplayName(categoryId: selectedCategoryFilterId))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(Color(hex: theme.textColor))
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
                         Image(systemName: "chevron.down")
-                            .font(.caption2)
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(Color(hex: theme.textSecondary))
                     }
-                    .foregroundColor(Color(hex: theme.textSecondary))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity)
+                    .background(Color(hex: theme.cardBackground))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color(hex: theme.borderColor).opacity(0.6), lineWidth: 1)
+                    )
                 }
-                Spacer()
+                .buttonStyle(PlainButtonStyle())
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 4)
+            .padding(.bottom, 12)
         }
         .background(Color(hex: theme.backgroundColor))
     }
@@ -268,8 +331,8 @@ struct FoodListView: View {
                 .listStyle(.insetGrouped)
                 .scrollContentBackground(.hidden)
 
-                if dataStore.shoppingItems.contains(where: { $0.isPurchased }) {
-                    Button(action: clearCompletedShoppingItems) {
+                if purchasedShoppingItems.isEmpty == false {
+                    Button(action: { showClearCompletedDialog = true }) {
                         HStack {
                             Image(systemName: "checkmark.circle")
                             Text(localizationManager.t("list.clearCompleted"))
@@ -284,6 +347,20 @@ struct FoodListView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
+                    .confirmationDialog(localizationManager.t("list.clearCompletedDialogTitle"), isPresented: $showClearCompletedDialog, titleVisibility: .visible) {
+                        Button(localizationManager.t("list.clearCompletedThrowAway"), role: .destructive) {
+                            tryClearCompletedShoppingItems()
+                        }
+                        Button(localizationManager.t("common.cancel"), role: .cancel) {}
+                    }
+                    .alert(localizationManager.t("list.clearCompletedNotYetInInventoryTitle"), isPresented: $showClearCompletedWarningAlert) {
+                        Button(localizationManager.t("common.cancel"), role: .cancel) {}
+                        Button(localizationManager.t("list.removeAnyway"), role: .destructive) {
+                            clearCompletedShoppingItems()
+                        }
+                    } message: {
+                        Text(localizationManager.t("list.clearCompletedNotYetInInventoryMessage"))
+                    }
                 }
             }
         }
@@ -298,12 +375,97 @@ struct FoodListView: View {
                 onAddTap: { showAddWishlistModal = true }
             )
         } else {
+            VStack(alignment: .leading, spacing: 12) {
+                // ——— 1) Filter by desire level (collapsible) ———
+                VStack(alignment: .leading, spacing: 0) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            wishlistFiltersCollapsed.toggle()
+                            UserDefaults.standard.set(wishlistFiltersCollapsed, forKey: Self.wishlistFiltersCollapsedKey)
+                        }
+                    } label: {
+                        HStack {
+                            Text(localizationManager.t("wishList.filterByDesireLevel"))
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(Color(hex: theme.textColor))
+                            Spacer()
+                            Text(wishlistFiltersCollapsed ? localizationManager.t("wishList.filterShow") : localizationManager.t("wishList.filterHide"))
+                                .font(.caption)
+                                .foregroundColor(Color(hex: theme.primaryColor))
+                            Image(systemName: wishlistFiltersCollapsed ? "chevron.down" : "chevron.up")
+                                .font(.caption.weight(.semibold))
+                                .foregroundColor(Color(hex: theme.textSecondary))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PlainButtonStyle())
+
+                    if !wishlistFiltersCollapsed {
+                        LazyVGrid(columns: [
+                            GridItem(.flexible(minimum: 56), spacing: 8),
+                            GridItem(.flexible(minimum: 56), spacing: 8),
+                            GridItem(.flexible(minimum: 56), spacing: 8)
+                        ], spacing: 8) {
+                            filterChip(title: localizationManager.t("wishList.filterAllRatings"), selected: wishlistRatingFilter == nil) {
+                                wishlistRatingFilter = nil
+                            }
+                            .frame(maxWidth: .infinity)
+                            ForEach([5, 4, 3, 2, 1], id: \.self) { level in
+                                filterChip(title: "\(level) 🔥", selected: wishlistRatingFilter == level) {
+                                    wishlistRatingFilter = level
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
+                    }
+                }
+                .background(Color(hex: theme.cardBackground))
+                .cornerRadius(10)
+
+                // ——— 2) Amount still needed (prominent card) ———
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "banknote")
+                            .font(.subheadline)
+                            .foregroundColor(Color(hex: theme.primaryColor))
+                        Text(localizationManager.t("wishList.amountNeeded"))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(Color(hex: theme.textSecondary))
+                    }
+                    Text("\(wishlistTotalCurrencySymbol)\(wishlistTotalAmount, specifier: "%.2f")")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(Color(hex: theme.textColor))
+                    Text(localizationManager.t("wishList.amountNeededSubtitle"))
+                        .font(.caption)
+                        .foregroundColor(Color(hex: theme.textSecondary))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(Color(hex: theme.cardBackground))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color(hex: theme.primaryColor).opacity(0.4), lineWidth: 1.5)
+                )
+                .cornerRadius(10)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+
             List {
-                ForEach(sortedWishItems) { item in
-                    WishlistRow(item: item, onEdit: {
-                        wishlistItemToEdit = item
-                        showAddWishlistModal = true
-                    }, onDelete: { Task { try? await dataStore.deleteWishItem(id: item.id) } })
+                ForEach(filteredWishItems) { item in
+                    WishlistRow(
+                        item: item,
+                        onEdit: { wishlistItemToEdit = item; showAddWishlistModal = true },
+                        onDelete: { Task { try? await dataStore.deleteWishItem(id: item.id) } },
+                        onRemove: { Task { try? await dataStore.deleteWishItem(id: item.id) } }
+                    )
                     .environmentObject(themeManager)
                     .environmentObject(localizationManager)
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -322,6 +484,20 @@ struct FoodListView: View {
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
         }
+    }
+
+    private func filterChip(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline)
+                .fontWeight(selected ? .semibold : .medium)
+                .foregroundColor(selected ? .white : Color(hex: theme.textSecondary))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(selected ? Color(hex: theme.primaryColor) : Color(hex: theme.cardBackground))
+                .cornerRadius(8)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     private func emptyStateView(message: String, buttonTitle: String, onAddTap: @escaping () -> Void) -> some View {
@@ -345,6 +521,15 @@ struct FoodListView: View {
             Spacer()
         }
         .padding()
+    }
+
+    private func tryClearCompletedShoppingItems() {
+        let notYetInInventory = purchasedShoppingItems.contains { $0.movedToInventory != true }
+        if notYetInInventory {
+            showClearCompletedWarningAlert = true
+        } else {
+            clearCompletedShoppingItems()
+        }
     }
 
     private func clearCompletedShoppingItems() {

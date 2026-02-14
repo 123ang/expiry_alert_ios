@@ -13,7 +13,7 @@ struct ListTabsHeader: View {
     private var theme: AppTheme { themeManager.currentTheme }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 16) {
             HStack {
                 Text(localizationManager.t("list.title"))
                     .font(.title2)
@@ -23,43 +23,41 @@ struct ListTabsHeader: View {
                 Button(action: onAddTap) {
                     HStack(spacing: 6) {
                         Image(systemName: "plus")
+                            .font(.subheadline.weight(.semibold))
                         Text(localizationManager.t("list.add"))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
                     }
-                    .font(.subheadline)
-                    .fontWeight(.medium)
                     .foregroundColor(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
                     .background(Color(hex: theme.primaryColor))
-                    .cornerRadius(10)
+                    .cornerRadius(12)
                 }
                 .buttonStyle(PlainButtonStyle())
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
-            .padding(.bottom, 12)
 
-            HStack(spacing: 0) {
+            HStack(spacing: 4) {
                 ForEach(0..<2, id: \.self) { index in
                     let isShopping = index == 0
+                    let isSelected = selectedTab == index
                     Button(action: { onTabChange(index) }) {
                         Text(isShopping ? localizationManager.t("shoppingList.shopping") : localizationManager.t("shoppingList.wishlist"))
                             .font(.subheadline)
-                            .fontWeight(selectedTab == index ? .semibold : .regular)
-                            .foregroundColor(selectedTab == index ? Color(hex: theme.primaryColor) : Color(hex: theme.textSecondary))
+                            .fontWeight(isSelected ? .semibold : .medium)
+                            .foregroundColor(isSelected ? .white : Color(hex: theme.textSecondary))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(isSelected ? Color(hex: theme.primaryColor) : Color(hex: theme.cardBackground))
+                            .cornerRadius(10)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .overlay(alignment: .bottom) {
-                        if selectedTab == index {
-                            Rectangle()
-                                .fill(Color(hex: theme.primaryColor))
-                                .frame(height: 3)
-                        }
-                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
             }
             .padding(.horizontal, 20)
+            .padding(.bottom, 12)
         }
         .background(Color(hex: theme.backgroundColor))
     }

@@ -16,21 +16,28 @@ struct FilterPills: View {
     private var theme: AppTheme { themeManager.currentTheme }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             ForEach(ShoppingFilter.allCases, id: \.self) { filter in
                 Button(action: { selected = filter }) {
                     Text(label(for: filter))
-                        .font(.caption)
-                        .fontWeight(selected == filter ? .semibold : .regular)
-                        .foregroundColor(selected == filter ? .white : Color(hex: theme.textColor))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(selected == filter ? Color(hex: theme.primaryColor) : Color(hex: theme.cardBackground))
+                        .font(.subheadline)
+                        .fontWeight(selected == filter ? .semibold : .medium)
+                        .foregroundColor(selected == filter ? .white : Color(hex: theme.textSecondary))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(selected == filter ? Color(hex: theme.primaryColor) : Color.clear)
                         .cornerRadius(8)
                 }
                 .buttonStyle(PlainButtonStyle())
             }
         }
+        .padding(4)
+        .background(Color(hex: theme.cardBackground))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(hex: theme.borderColor).opacity(0.6), lineWidth: 1)
+        )
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
     }

@@ -28,6 +28,22 @@ struct AddShoppingItemModal: View {
         return localizationManager.getCategoryName(cat)
     }
 
+    /// Unique "where to buy" values from existing shopping items, sorted, for suggestions.
+    private var suggestedWhereToBuy: [String] {
+        let used = Set(dataStore.shoppingItems.compactMap { item -> String? in
+            let w = item.whereToBuy?.trimmingCharacters(in: .whitespaces)
+            return (w != nil && !w!.isEmpty) ? w : nil
+        })
+        return used.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    /// Filter suggestions by current input (prefix match); if field empty, show all.
+    private var filteredSuggestions: [String] {
+        let term = whereToBuy.trimmingCharacters(in: .whitespaces).lowercased()
+        if term.isEmpty { return suggestedWhereToBuy }
+        return suggestedWhereToBuy.filter { $0.lowercased().hasPrefix(term) || $0.lowercased().contains(term) }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -37,9 +53,33 @@ struct AddShoppingItemModal: View {
                         TextField(localizationManager.t("addItem.itemNamePlaceholder"), text: $name)
                             .textFieldStyle(ThemedTextFieldStyle(theme: theme))
                     }
-                    FormField(label: "Where to buy", theme: theme) {
-                        TextField("Store or place (optional)", text: $whereToBuy)
-                            .textFieldStyle(ThemedTextFieldStyle(theme: theme))
+                    FormField(label: localizationManager.t("list.whereToBuy"), theme: theme) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            TextField(localizationManager.t("list.whereToBuyPlaceholder"), text: $whereToBuy)
+                                .textFieldStyle(ThemedTextFieldStyle(theme: theme))
+                            if !filteredSuggestions.isEmpty {
+                                Text(localizationManager.t("list.whereToBuySuggestions"))
+                                    .font(.caption)
+                                    .foregroundColor(Color(hex: theme.textSecondary))
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        ForEach(filteredSuggestions, id: \.self) { suggestion in
+                                            Button(action: { whereToBuy = suggestion }) {
+                                                Text(suggestion)
+                                                    .font(.caption)
+                                                    .foregroundColor(Color(hex: theme.primaryColor))
+                                                    .padding(.horizontal, 10)
+                                                    .padding(.vertical, 6)
+                                                    .background(Color(hex: theme.primaryColor).opacity(0.12))
+                                                    .cornerRadius(8)
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
+                                        }
+                                    }
+                                    .padding(.vertical, 2)
+                                }
+                            }
+                        }
                     }
                     FormField(label: localizationManager.t("addItem.category"), theme: theme) {
                         Button(action: { showCategoryPicker = true }, label: {

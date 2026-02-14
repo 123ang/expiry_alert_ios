@@ -39,6 +39,23 @@ struct ShoppingRow: View {
                     .strikethrough(item.isPurchased)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            if item.isPurchased && item.movedToInventory != true {
+                Button(action: onAddToInventory) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.caption)
+                        Text(localizationManager.t("list.addToInventory"))
+                            .font(.caption)
+                    }
+                    .foregroundColor(Color(hex: theme.primaryColor))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(hex: theme.primaryColor).opacity(0.12))
+                    .cornerRadius(8)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 4)

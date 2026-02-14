@@ -250,16 +250,18 @@ struct ItemDetailView: View {
     }
     
     // MARK: - Actions
-    private func loadItem() async {
+    @discardableResult
+    private func loadItem() async -> FoodItem? {
         isLoading = true
-        // Try from local cache first
-        item = dataStore.foodItems.first { $0.id == itemId }
-        if item == nil {
+        var loaded = dataStore.foodItems.first { $0.id == itemId }
+        if loaded == nil {
             do {
-                item = try await APIService.shared.getFoodItem(id: itemId)
+                loaded = try await APIService.shared.getFoodItem(id: itemId)
             } catch {}
         }
+        item = loaded
         isLoading = false
+        return loaded
     }
     
     private func deleteItem() {
@@ -272,18 +274,26 @@ struct ItemDetailView: View {
     }
     
     private func handleQuantityAction() {
-        let qty = Int(quantityInput) ?? 1
+        let qty = max(1, Int(quantityInput) ?? 1)
+        let currentQty = item?.quantity ?? 1
         showQuantitySheet = false
         Task {
             do {
-                let eventType = quantityAction == "use" ? "used_partially" : "thrown_away"
+                let eventType: String
+                if quantityAction == "use" {
+                    eventType = (qty >= currentQty) ? "used_completely" : "used_partially"
+                } else {
+                    eventType = "thrown_away"
+                }
                 try await dataStore.logFoodItemEvent(
                     itemId: itemId,
                     eventType: eventType,
                     quantity: qty,
                     reason: quantityAction == "throw" ? "other" : nil
                 )
-                await loadItem()
+                await MainActor.run {
+                    dismiss()
+                }
             } catch {}
         }
     }

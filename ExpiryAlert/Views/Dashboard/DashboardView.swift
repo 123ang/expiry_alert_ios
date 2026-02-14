@@ -30,7 +30,7 @@ struct DashboardView: View {
     }
     
     private var filteredFoodItems: [FoodItem] {
-        let items = dataStore.foodItems
+        let items = dataStore.activeFoodItems
         switch homeFilterMode {
         case .all:
             return items

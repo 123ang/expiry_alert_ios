@@ -1,5 +1,7 @@
 import SwiftUI
 
+private let lastWishlistCurrencyKey = "lastWishlistCurrencyCode"
+
 struct AddWishlistItemModal: View {
     @EnvironmentObject var dataStore: DataStore
     @EnvironmentObject var themeManager: ThemeManager
@@ -10,7 +12,7 @@ struct AddWishlistItemModal: View {
     
     @State private var name = ""
     @State private var priceText = ""
-    @State private var selectedCurrencyCode: String = "USD"
+    @State private var selectedCurrencyCode: String = UserDefaults.standard.string(forKey: lastWishlistCurrencyKey) ?? "USD"
     @State private var desireLevel: Int = 3
     @State private var isSaving = false
     @State private var errorMessage: String?
@@ -36,7 +38,10 @@ struct AddWishlistItemModal: View {
                         HStack(spacing: 12) {
                             Menu {
                                 ForEach(CurrencyOption.all) { currency in
-                                    Button(action: { selectedCurrencyCode = currency.code }, label: {
+                                    Button(action: {
+                                        selectedCurrencyCode = currency.code
+                                        UserDefaults.standard.set(currency.code, forKey: lastWishlistCurrencyKey)
+                                    }, label: {
                                         HStack {
                                             Text(currency.symbol)
                                             Text(currency.name)
@@ -74,7 +79,7 @@ struct AddWishlistItemModal: View {
                                 .textFieldStyle(ThemedTextFieldStyle(theme: theme))
                         }
                     }
-                    FormField(label: "Desire level", theme: theme) {
+                    FormField(label: localizationManager.t("wishList.desireLevel"), theme: theme) {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 12) {
                                 ForEach(1...5, id: \.self) { level in
@@ -94,7 +99,7 @@ struct AddWishlistItemModal: View {
                                     .buttonStyle(PlainButtonStyle())
                                 }
                             }
-                            Text("How much I want it: \(desireLevel)/5")
+                            Text(localizationManager.t("wishList.desireLevelHint").replacingOccurrences(of: "%@", with: "\(desireLevel)"))
                                 .font(.caption)
                                 .foregroundColor(Color(hex: theme.textSecondary))
                         }
@@ -115,7 +120,7 @@ struct AddWishlistItemModal: View {
                 }
                 .padding(20)
             }
-            .navigationTitle(editingItem == nil ? localizationManager.t("wishList.addItem") : "Edit wish item")
+            .navigationTitle(editingItem == nil ? localizationManager.t("wishList.addItem") : localizationManager.t("wishList.editItem"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -133,8 +138,10 @@ struct AddWishlistItemModal: View {
                 if let item = editingItem {
                     name = item.name
                     priceText = item.price.map { String(format: "%.2f", $0) } ?? ""
-                    selectedCurrencyCode = item.currencyCode ?? "USD"
+                    selectedCurrencyCode = item.currencyCode ?? UserDefaults.standard.string(forKey: lastWishlistCurrencyKey) ?? "USD"
                     desireLevel = item.desireLevel
+                } else {
+                    selectedCurrencyCode = UserDefaults.standard.string(forKey: lastWishlistCurrencyKey) ?? "USD"
                 }
             }
         }
@@ -170,6 +177,7 @@ struct AddWishlistItemModal: View {
                     }
                     try await dataStore.createWishItem(data)
                 }
+                UserDefaults.standard.set(selectedCurrencyCode, forKey: lastWishlistCurrencyKey)
                 onSaved?()
                 dismiss()
             } catch {

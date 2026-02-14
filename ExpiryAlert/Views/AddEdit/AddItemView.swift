@@ -580,22 +580,32 @@ struct LocationPickerSheet: View {
     
     private var theme: AppTheme { themeManager.currentTheme }
     
-    private let mergedLocationSectionKey = "Customization"
+    /// Match LocationsManagementView: Fridge (merged) → Kitchen; empty/other → Other.
+    private func sectionKey(for location: Location) -> String {
+        if DataStore.isFridgeVariant(location) { return "Kitchen" }
+        let t = (location.section ?? "").trimmingCharacters(in: .whitespaces).lowercased()
+        if t.isEmpty || t == "other" { return "Other" }
+        return location.section ?? "Other"
+    }
+    
+    private let otherSectionKey = "Other"
+    private let customizeSectionKey = "Customize"
+    
+    /// User-added locations only (same as Manage Locations).
+    private func isCustomizationLocation(_ location: Location) -> Bool {
+        if let custom = location.isCustomization { return custom }
+        return location.isDefault != true
+    }
+    
+    private var customizeLocations: [Location] {
+        dataStore.visibleDisplayLocations.filter { isCustomizationLocation($0) }
+    }
     
     private func localizedLocationSectionTitle(_ section: String) -> String {
-        let t = section.trimmingCharacters(in: .whitespaces).lowercased()
-        if t.isEmpty || t == "customization" { return localizationManager.t("locations.sectionCustomization") }
+        if section == customizeSectionKey { return localizationManager.t("common.sectionCustomize") }
+        if section.isEmpty || section == otherSectionKey { return localizationManager.t("locations.sectionOther") }
         let key: String
-        switch t {
-        case "food": key = "section.food"
-        case "beverages": key = "section.beverages"
-        case "other": key = "section.other"
-        case "health": key = "section.health"
-        case "personal care": key = "section.personalCare"
-        case "home": key = "section.home"
-        case "documents": key = "section.documents"
-        case "pets": key = "section.pets"
-        case "others": key = "section.others"
+        switch section.trimmingCharacters(in: .whitespaces).lowercased() {
         case "kitchen": key = "section.kitchen"
         case "home storage": key = "section.homeStorage"
         case "bathroom": key = "section.bathroom"
@@ -607,33 +617,35 @@ struct LocationPickerSheet: View {
         return translated != key ? translated : section
     }
     
-    private func normalizedLocationSection(_ section: String?) -> String {
-        let t = (section ?? "").trimmingCharacters(in: .whitespaces).lowercased()
-        if t.isEmpty || t == "other" { return mergedLocationSectionKey }
-        return section ?? ""
-    }
-    
+    /// Same grouping as LocationsManagementView: Customize (user-added only), then sections by sectionKey (Fridge → Kitchen).
     private var locationsBySection: [(section: String, items: [Location])] {
         let term = searchText.trimmingCharacters(in: .whitespaces).lowercased()
         var list = dataStore.visibleDisplayLocations
         if !term.isEmpty {
             list = list.filter { localizationManager.getLocationDisplayName($0).lowercased().contains(term) }
         }
+        let custom = list.filter { isCustomizationLocation($0) }
+        let defaultList = list.filter { !isCustomizationLocation($0) }
         var map: [String: [Location]] = [:]
-        for loc in list {
-            let key = normalizedLocationSection(loc.section)
+        for loc in defaultList {
+            let key = sectionKey(for: loc)
             map[key, default: []].append(loc)
         }
         var order: [String] = []
-        for loc in list {
-            let key = normalizedLocationSection(loc.section)
+        for loc in defaultList {
+            let key = sectionKey(for: loc)
             if !order.contains(key) { order.append(key) }
         }
-        if order.contains(mergedLocationSectionKey) {
-            order.removeAll { $0 == mergedLocationSectionKey }
-            order.insert(mergedLocationSectionKey, at: 0)
+        if order.contains("Kitchen") {
+            order.removeAll { $0 == "Kitchen" }
+            order.insert("Kitchen", at: 0)
         }
-        return order.map { (section: $0, items: map[$0] ?? []) }
+        if order.contains(otherSectionKey) {
+            order.removeAll { $0 == otherSectionKey }
+            order.append(otherSectionKey)
+        }
+        let otherSections = order.map { (section: $0, items: map[$0] ?? []) }
+        return [(section: customizeSectionKey, items: custom)] + otherSections
     }
     
     var body: some View {
@@ -663,9 +675,7 @@ struct LocationPickerSheet: View {
                     } else {
                     List {
                         ForEach(Array(locationsBySection.enumerated()), id: \.offset) { _, pair in
-                            let sectionTitle = (pair.section.isEmpty || pair.section == mergedLocationSectionKey)
-                                ? localizationManager.t("locations.sectionCustomization")
-                                : localizedLocationSectionTitle(pair.section)
+                            let sectionTitle = localizedLocationSectionTitle(pair.section)
                             DisclosureGroup(
                                 isExpanded: Binding(
                                     get: { expandedSections.contains(pair.section) },

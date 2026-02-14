@@ -101,8 +101,8 @@ class LocalizationManager: ObservableObject {
     private static let locationNameToKey: [String: String] = [
         "fridge (top)": "defaultLocation.fridgeTop", "fridge (middle)": "defaultLocation.fridgeMiddle",
         "fridge (bottom)": "defaultLocation.fridgeBottom", "fridge door": "defaultLocation.fridgeDoor",
-        "freezer": "defaultLocation.freezer", "pantry": "defaultLocation.pantry",
-        "cabinet": "defaultLocation.cabinet", "drawer": "defaultLocation.drawer",
+        "freezer": "defaultLocation.freezer", "refrigerator": "defaultLocation.fridge",
+        "pantry": "defaultLocation.pantry", "cabinet": "defaultLocation.cabinet", "drawer": "defaultLocation.drawer",
         "counter / shelf": "defaultLocation.counterShelf", "counter": "defaultLocation.counter",
         "fridge": "defaultLocation.fridge",
         "storage box": "defaultLocation.storageBox", "cardboard box": "defaultLocation.cardboardBox",

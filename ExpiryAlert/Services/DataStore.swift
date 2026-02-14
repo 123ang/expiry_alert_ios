@@ -34,20 +34,25 @@ class DataStore: ObservableObject {
         groups.first { $0.id == activeGroupId }
     }
     
+    /// Items with quantity > 0 (used/thrown items excluded from lists and counts).
+    var activeFoodItems: [FoodItem] {
+        foodItems.filter { $0.quantity > 0 }
+    }
+    
     var freshItems: [FoodItem] {
-        foodItems.filter { $0.status == .fresh }
+        activeFoodItems.filter { $0.status == .fresh }
     }
     
     var expiringItems: [FoodItem] {
-        foodItems.filter { $0.status == .expiringSoon }
+        activeFoodItems.filter { $0.status == .expiringSoon }
     }
     
     var expiredItems: [FoodItem] {
-        foodItems.filter { $0.status == .expired }
+        activeFoodItems.filter { $0.status == .expired }
     }
     
     var dashboardCounts: (total: Int, fresh: Int, expiring: Int, expired: Int) {
-        (foodItems.count, freshItems.count, expiringItems.count, expiredItems.count)
+        (activeFoodItems.count, freshItems.count, expiringItems.count, expiredItems.count)
     }
     
     /// Category IDs the user has selected to show. Empty = show all.
@@ -635,7 +640,12 @@ class DataStore: ObservableObject {
     }
     
     func deleteWishItem(id: String) async throws {
-        try await APIService.shared.deleteWishItem(id: id)
         wishItems.removeAll { $0.id == id }
+        do {
+            try await APIService.shared.deleteWishItem(id: id)
+        } catch {
+            await refreshWishItems()
+            throw error
+        }
     }
 }
