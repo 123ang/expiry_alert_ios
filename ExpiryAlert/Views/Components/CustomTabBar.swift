@@ -3,9 +3,9 @@ import SwiftUI
 // MARK: - Tab Items
 enum TabItem: Int, CaseIterable {
     case home = 0
-    case list
-    case add
     case calendar
+    case add
+    case list
     case settings
     
     var icon: String {
@@ -46,9 +46,9 @@ struct CustomTabBar: View {
             HStack(spacing: 0) {
                 ForEach(TabItem.allCases, id: \.self) { item in
                     if item.isAddButton {
-                        // Spacer for the floating button
+                        // Spacer for the floating button – keep compact so menu icons sit closer
                         Spacer()
-                            .frame(width: 56)
+                            .frame(width: 44)
                     } else {
                         TabBarButton(
                             item: item,
@@ -62,9 +62,12 @@ struct CustomTabBar: View {
                     }
                 }
             }
-            .padding(.top, 12)
-            .padding(.bottom, bottomPadding)
-            .background(Color(hex: theme.cardBackground))
+            .padding(.top, 8)
+            .padding(.bottom, bottomPadding) // Single use of safe area: content sits above home indicator; background extends to screen bottom
+            .background(
+                Color(hex: theme.backgroundColor)
+                    .ignoresSafeArea(edges: .bottom)
+            )
             .overlay(alignment: .top) {
                 Rectangle()
                     .fill(Color(hex: theme.borderColor))
@@ -77,27 +80,27 @@ struct CustomTabBar: View {
                 y: -2
             )
             
-            // Floating add button
+            // Floating add button – sit closer to bar to reduce gap
             FloatingAddButton(
                 showAddItem: $showAddItem,
                 theme: theme
             )
-            .offset(y: -28)
+            .offset(y: -20)
         }
     }
     
+    /// Bottom inset applied once: keeps icons above home indicator; no extra padding.
     private var bottomPadding: CGFloat {
         #if os(iOS)
-        // Add extra padding for iPhone models with home indicator
         let window = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .flatMap { $0.windows }
             .first { $0.isKeyWindow }
-        if let bottomInset = window?.safeAreaInsets.bottom, bottomInset > 0 {
-            return 0 // Safe area will handle it
-        }
-        #endif
+        let bottomInset = window?.safeAreaInsets.bottom ?? 0
+        return bottomInset > 0 ? bottomInset : 12
+        #else
         return 12
+        #endif
     }
 }
 

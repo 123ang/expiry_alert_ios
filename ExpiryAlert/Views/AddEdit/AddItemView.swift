@@ -9,6 +9,12 @@ struct AddItemView: View {
     
     var prefilledDate: Date?
     var editingItem: FoodItem?
+    /// Prefill name when opening from "Add to Inventory" (shopping list).
+    var prefilledName: String?
+    /// Prefill category when opening from "Add to Inventory".
+    var prefilledCategoryId: String?
+    /// Called with the new inventory item id when saved from "Add to Inventory" flow.
+    var onSavedInventoryItemId: ((String) -> Void)?
     
     @State private var itemName = ""
     @State private var quantity = "1"
@@ -21,222 +27,57 @@ struct AddItemView: View {
     @State private var errorMessage = ""
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
+    @State private var categorySearchText = ""
+    @State private var locationSearchText = ""
+    @State private var showCategoryPicker = false
+    @State private var showLocationPicker = false
     
     private var theme: AppTheme { themeManager.currentTheme }
+    
+    private var appLocale: Locale {
+        switch localizationManager.currentLanguage {
+        case .en: return Locale(identifier: "en_US")
+        case .ja: return Locale(identifier: "ja_JP")
+        case .ms: return Locale(identifier: "ms_MY")
+        case .th: return Locale(identifier: "th_TH")
+        case .zh: return Locale(identifier: "zh_Hans")
+        }
+    }
+    
+    private var selectedCategoryName: String {
+        guard let id = selectedCategoryId,
+              let cat = dataStore.displayCategories.first(where: { $0.id == id }) else { return localizationManager.t("common.none") }
+        return localizationManager.getCategoryName(cat)
+    }
+    
+    private var selectedLocationName: String {
+        guard let id = selectedLocationId,
+              let loc = dataStore.locations.first(where: { $0.id == id }) else { return "" }
+        return localizationManager.getLocationDisplayName(loc)
+    }
     private var isEditing: Bool { editingItem != nil }
-    
-    @ViewBuilder
-    private var categorySelectionContent: some View {
-        if dataStore.categories.isEmpty {
-            emptySelectionBox(
-                message: "No categories yet. Go to Settings → Manage Categories to add.",
-                theme: theme
-            )
-        } else {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 8) {
-                // "None" option
-                Button(action: { selectedCategoryId = nil }) {
-                    VStack(spacing: 4) {
-                        Text("—")
-                            .font(.title2)
-                        Text("None")
-                            .font(.caption)
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(8)
-                    .background(
-                        selectedCategoryId == nil
-                        ? Color(hex: theme.primaryColor).opacity(0.15)
-                        : Color(hex: theme.cardBackground)
-                    )
-                    .foregroundColor(Color(hex: theme.textColor))
-                    .cornerRadius(8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(
-                                selectedCategoryId == nil
-                                ? Color(hex: theme.primaryColor)
-                                : Color(hex: theme.borderColor),
-                                lineWidth: 1
-                            )
-                    )
-                }
-                ForEach(dataStore.categories) { category in
-                    Button(action: { selectedCategoryId = category.id }) {
-                        VStack(spacing: 4) {
-                            Text(category.icon ?? "🍽️")
-                                .font(.title2)
-                            Text(localizationManager.getCategoryName(category))
-                                .font(.caption)
-                                .lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(8)
-                        .background(
-                            selectedCategoryId == category.id
-                            ? Color(hex: theme.primaryColor).opacity(0.15)
-                            : Color(hex: theme.cardBackground)
-                        )
-                        .foregroundColor(Color(hex: theme.textColor))
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(
-                                    selectedCategoryId == category.id
-                                    ? Color(hex: theme.primaryColor)
-                                    : Color(hex: theme.borderColor),
-                                    lineWidth: 1
-                                )
-                        )
-                    }
-                }
-            }
-        }
-    }
-    
-    @ViewBuilder
-    private var locationSelectionContent: some View {
-        if dataStore.locations.isEmpty {
-            emptySelectionBox(
-                message: "No locations yet. Go to Settings → Manage Locations to add.",
-                theme: theme
-            )
-        } else {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 8) {
-                ForEach(dataStore.locations) { location in
-                    Button(action: { selectedLocationId = location.id }) {
-                        VStack(spacing: 4) {
-                            Text(location.icon ?? "📍")
-                                .font(.title2)
-                            Text(localizationManager.getLocationName(location))
-                                .font(.caption)
-                                .lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(8)
-                        .background(
-                            selectedLocationId == location.id
-                            ? Color(hex: theme.primaryColor).opacity(0.15)
-                            : Color(hex: theme.cardBackground)
-                        )
-                        .foregroundColor(Color(hex: theme.textColor))
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(
-                                    selectedLocationId == location.id
-                                    ? Color(hex: theme.primaryColor)
-                                    : Color(hex: theme.borderColor),
-                                    lineWidth: 1
-                                )
-                        )
-                    }
-                }
-            }
-        }
-    }
     
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color(hex: theme.backgroundColor).ignoresSafeArea()
-                
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Item Name
-                        FormField(label: localizationManager.t("addItem.itemName"), theme: theme) {
-                            TextField(localizationManager.t("addItem.itemNamePlaceholder"), text: $itemName)
-                                .textFieldStyle(ThemedTextFieldStyle(theme: theme))
-                        }
-                        
-                        // Quantity
-                        FormField(label: localizationManager.t("addItem.quantity"), theme: theme) {
-                            TextField(localizationManager.t("addItem.quantityPlaceholder"), text: $quantity)
-                                .textFieldStyle(ThemedTextFieldStyle(theme: theme))
-                                .keyboardType(.numberPad)
-                        }
-                        
-                        // Photo
-                        FormField(label: localizationManager.t("form.photo"), theme: theme) {
-                            VStack {
-                                if let image = selectedImage {
-                                    Image(uiImage: image)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(height: 200)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                                }
-                                
-                                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                                    HStack {
-                                        Image(systemName: "camera.fill")
-                                        Text(selectedImage == nil
-                                             ? localizationManager.t("image.addPhoto")
-                                             : localizationManager.t("image.changePhoto"))
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(Color(hex: theme.primaryColor))
-                                    .foregroundColor(.white)
-                                    .cornerRadius(8)
-                                }
-                            }
-                        }
-                        
-                        // Category
-                        FormField(label: localizationManager.t("addItem.category"), theme: theme) {
-                            categorySelectionContent
-                        }
-                        
-                        // Location
-                        FormField(label: localizationManager.t("addItem.storageLocation"), theme: theme) {
-                            locationSelectionContent
-                        }
-                        
-                        // Expiry Date
-                        FormField(label: localizationManager.t("addItem.expiryDate"), theme: theme) {
-                            DatePicker("", selection: $expiryDate, displayedComponents: .date)
-                                .datePickerStyle(.graphical)
-                                .tint(Color(hex: theme.primaryColor))
-                                .padding()
-                                .background(Color(hex: theme.cardBackground))
-                                .cornerRadius(12)
-                        }
-                        
-                        // Notes
-                        FormField(label: localizationManager.t("addItem.notes"), theme: theme) {
-                            TextEditor(text: $notes)
-                                .frame(minHeight: 80)
-                                .padding(8)
-                                .background(Color(hex: theme.cardBackground))
-                                .cornerRadius(8)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color(hex: theme.borderColor), lineWidth: 1)
-                                )
-                                .foregroundColor(Color(hex: theme.textColor))
-                        }
-                    }
-                    .padding(16)
-                }
-            }
-            .navigationTitle(isEditing ? localizationManager.t("addItem.editTitle") : localizationManager.t("addItem.title"))
+            addItemFormContent
+                .navigationTitle(isEditing ? localizationManager.t("addItem.editTitle") : localizationManager.t("addItem.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(localizationManager.t("common.cancel")) { dismiss() }
+                    Button(action: { dismiss() }, label: {
+                        Text(localizationManager.t("common.cancel"))
+                    })
                         .foregroundColor(Color(hex: theme.primaryColor))
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: handleSave) {
+                    Button(action: { handleSave() }, label: {
                         if isSaving {
                             ProgressView()
                         } else {
                             Text(localizationManager.t("form.save"))
                                 .fontWeight(.bold)
                         }
-                    }
+                    })
                     .disabled(isSaving)
                     .foregroundColor(Color(hex: theme.primaryColor))
                 }
@@ -250,33 +91,183 @@ struct AddItemView: View {
                     }
                 }
             }
-            .alert("Error", isPresented: $showError) {
-                Button("OK") {}
+            .alert(localizationManager.t("alert.error"), isPresented: $showError) {
+                Button(localizationManager.t("common.ok"), role: .cancel, action: {})
             } message: {
                 Text(errorMessage)
+            }
+            .environment(\.locale, appLocale)
+            .sheet(isPresented: $showCategoryPicker) {
+                CategoryPickerSheet(
+                    selectedCategoryId: $selectedCategoryId,
+                    searchText: $categorySearchText,
+                    onDismiss: { showCategoryPicker = false }
+                )
+                .environmentObject(dataStore)
+                .environmentObject(themeManager)
+                .environmentObject(localizationManager)
+            }
+            .sheet(isPresented: $showLocationPicker) {
+                LocationPickerSheet(
+                    selectedLocationId: $selectedLocationId,
+                    searchText: $locationSearchText,
+                    onDismiss: { showLocationPicker = false }
+                )
+                .environmentObject(dataStore)
+                .environmentObject(themeManager)
+                .environmentObject(localizationManager)
             }
         }
     }
     
-    private func emptySelectionBox(message: String, theme: AppTheme) -> some View {
-        Text(message)
-            .font(.subheadline)
-            .foregroundColor(Color(hex: theme.textSecondary))
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
-            .frame(minHeight: 56)
-            .padding(12)
-            .background(Color(hex: theme.cardBackground))
-            .cornerRadius(8)
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color(hex: theme.borderColor), lineWidth: 1)
-            )
+    private var addItemFormContent: some View {
+        ZStack {
+            Color(hex: theme.backgroundColor).ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 20) {
+                    FormField(label: localizationManager.t("addItem.itemName"), theme: theme) {
+                        TextField(localizationManager.t("addItem.itemNamePlaceholder"), text: $itemName)
+                            .textFieldStyle(ThemedTextFieldStyle(theme: theme))
+                    }
+                    FormField(label: localizationManager.t("addItem.quantity"), theme: theme) {
+                        TextField(localizationManager.t("addItem.quantityPlaceholder"), text: $quantity)
+                            .textFieldStyle(ThemedTextFieldStyle(theme: theme))
+                            .keyboardType(.numberPad)
+                    }
+                    FormField(label: localizationManager.t("form.photo"), theme: theme) {
+                        addItemPhotoSection
+                    }
+                    FormField(label: localizationManager.t("addItem.category"), theme: theme) {
+                        categoryFieldButton
+                    }
+                    FormField(label: localizationManager.t("addItem.storageLocation"), theme: theme) {
+                        locationFieldButton
+                    }
+                    FormField(label: localizationManager.t("addItem.expiryDate"), theme: theme) {
+                        DatePicker("", selection: $expiryDate, displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                            .tint(Color(hex: theme.primaryColor))
+                            .padding()
+                            .background(Color(hex: theme.cardBackground))
+                            .cornerRadius(12)
+                    }
+                    FormField(label: localizationManager.t("addItem.notes"), theme: theme) {
+                        TextEditor(text: $notes)
+                            .frame(minHeight: 80)
+                            .padding(8)
+                            .background(Color(hex: theme.cardBackground))
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+                            )
+                            .foregroundColor(Color(hex: theme.textColor))
+                    }
+                }
+                .padding(16)
+            }
+        }
+    }
+    
+    private var addItemPhotoSection: some View {
+        VStack {
+            if let image = selectedImage {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(height: 200)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                HStack {
+                    Image(systemName: "camera.fill")
+                    Text(selectedImage == nil
+                         ? localizationManager.t("image.addPhoto")
+                         : localizationManager.t("image.changePhoto"))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color(hex: theme.primaryColor))
+                .foregroundColor(.white)
+                .cornerRadius(8)
+            }
+        }
+    }
+    
+    private var categoryFieldButtonLabel: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                if selectedCategoryId == nil {
+                    Image(systemName: "tag.fill")
+                        .font(.title3)
+                } else {
+                    Text(dataStore.displayCategories.first(where: { $0.id == selectedCategoryId })?.icon ?? "🍽️")
+                        .font(.title3)
+                }
+            }
+            .frame(width: 32, height: 32)
+            .background(Color(hex: theme.primaryColor).opacity(0.12))
+            .clipShape(Circle())
+            Text(selectedCategoryId == nil ? localizationManager.t("common.tapToChoose") : selectedCategoryName)
+                .font(.subheadline)
+                .foregroundColor(selectedCategoryId == nil ? Color(hex: theme.textSecondary) : Color(hex: theme.textColor))
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundColor(Color(hex: theme.textSecondary))
+        }
+        .padding(12)
+        .background(Color(hex: theme.cardBackground))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+        )
+    }
+    
+    private var categoryFieldButton: some View {
+        Button(action: { showCategoryPicker = true }, label: { categoryFieldButtonLabel })
+            .buttonStyle(PlainButtonStyle())
+    }
+    
+    private var locationFieldButtonLabel: some View {
+        HStack(spacing: 12) {
+            Text(selectedLocationId == nil ? "📍" : (dataStore.locations.first(where: { $0.id == selectedLocationId })?.icon ?? "📍"))
+                .font(.title3)
+                .frame(width: 32, height: 32)
+                .background(Color(hex: theme.primaryColor).opacity(0.12))
+                .clipShape(Circle())
+            Text(selectedLocationName.isEmpty ? localizationManager.t("common.tapToChoose") : selectedLocationName)
+                .font(.subheadline)
+                .foregroundColor(selectedLocationName.isEmpty ? Color(hex: theme.textSecondary) : Color(hex: theme.textColor))
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundColor(Color(hex: theme.textSecondary))
+        }
+        .padding(12)
+        .background(Color(hex: theme.cardBackground))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+        )
+    }
+    
+    private var locationFieldButton: some View {
+        Button(action: { showLocationPicker = true }, label: { locationFieldButtonLabel })
+            .buttonStyle(PlainButtonStyle())
     }
     
     private func setupInitialValues() {
         if let date = prefilledDate {
             expiryDate = date
+        }
+        if let name = prefilledName, !name.isEmpty {
+            itemName = name
+        }
+        if let catId = prefilledCategoryId {
+            selectedCategoryId = catId
         }
         if let item = editingItem {
             itemName = item.name
@@ -337,7 +328,8 @@ struct AddItemView: View {
                 if let editItem = editingItem {
                     try await dataStore.updateFoodItem(id: editItem.id, updates: itemData)
                 } else {
-                    _ = try await dataStore.createFoodItem(itemData)
+                    let created = try await dataStore.createFoodItem(itemData)
+                    onSavedInventoryItemId?(created.id)
                 }
                 
                 dismiss()
@@ -346,6 +338,436 @@ struct AddItemView: View {
                 showError = true
             }
             isSaving = false
+        }
+    }
+}
+
+// MARK: - Category Picker Sheet (pop-up)
+struct CategoryPickerSheet: View {
+    @Binding var selectedCategoryId: String?
+    @Binding var searchText: String
+    let onDismiss: () -> Void
+    @EnvironmentObject var dataStore: DataStore
+    @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var localizationManager: LocalizationManager
+    @Environment(\.dismiss) private var dismiss
+    @State private var expandedSections: Set<String> = []
+    
+    private var theme: AppTheme { themeManager.currentTheme }
+    
+    private func isBeverageCategory(_ category: Category) -> Bool {
+        let key = (category.translationKey ?? "").lowercased()
+        let name = category.name.lowercased()
+        return key.contains("drink") || name.contains("beverage") || name.contains("drink")
+    }
+    
+    private func normalizedCategorySection(for category: Category) -> String {
+        let sec = category.section ?? ""
+        let t = sec.trimmingCharacters(in: .whitespaces).lowercased()
+        let isCustomizationGroup = t.isEmpty || t == "other" || t == "food & drinks" || t == "food and drinks"
+        if isCustomizationGroup {
+            return isBeverageCategory(category) ? "Beverages" : "Food"
+        }
+        return sec.isEmpty ? "Other" : sec
+    }
+    
+    private let customizationSectionKeys = ["Food", "Beverages"]
+    private let customizeSectionKey = "Customize"
+    
+    private func localizedSectionTitle(_ section: String) -> String {
+        let key: String
+        switch section.trimmingCharacters(in: .whitespaces).lowercased() {
+        case "food": key = "section.food"
+        case "beverages": key = "section.beverages"
+        case "other": key = "section.other"
+        case "health": key = "section.health"
+        case "personal care": key = "section.personalCare"
+        case "home": key = "section.home"
+        case "documents": key = "section.documents"
+        case "pets": key = "section.pets"
+        case "others": key = "section.others"
+        default: return section
+        }
+        let translated = localizationManager.t(key)
+        return translated != key ? translated : section
+    }
+    
+    private func isCustomizationCategory(_ category: Category) -> Bool {
+        if let custom = category.isCustomization { return custom }
+        return category.isDefault != true
+    }
+    
+    private var categoriesBySection: [(section: String, items: [Category])] {
+        let term = searchText.trimmingCharacters(in: .whitespaces).lowercased()
+        var list = localizationManager.deduplicatedCategories(dataStore.visibleDisplayCategories)
+        if !term.isEmpty {
+            list = list.filter { localizationManager.getCategoryName($0).lowercased().contains(term) }
+        }
+        let customItems = list.filter { isCustomizationCategory($0) }
+        let rest = list.filter { !isCustomizationCategory($0) }
+        var map: [String: [Category]] = [:]
+        for c in rest {
+            let key = normalizedCategorySection(for: c)
+            map[key, default: []].append(c)
+        }
+        var order: [String] = []
+        for c in rest {
+            let key = normalizedCategorySection(for: c)
+            if !order.contains(key) { order.append(key) }
+        }
+        let head = customizationSectionKeys.filter { order.contains($0) }
+        let tail = order.filter { !customizationSectionKeys.contains($0) }
+        let reordered = head + tail
+        let otherSections = reordered.map { (section: $0, items: map[$0] ?? []) }
+        return [(section: customizeSectionKey, items: customItems)] + otherSections
+    }
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(hex: theme.backgroundColor).ignoresSafeArea()
+                VStack(alignment: .leading, spacing: 12) {
+                    TextField(localizationManager.t("categories.searchPlaceholder"), text: $searchText)
+                        .font(.subheadline)
+                        .padding(10)
+                        .background(Color(hex: theme.cardBackground))
+                        .foregroundColor(Color(hex: theme.textColor))
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+                        )
+                        .padding(.horizontal)
+                    
+                    if localizationManager.deduplicatedCategories(dataStore.visibleDisplayCategories).isEmpty {
+                        Text(localizationManager.t("categories.noCategoriesHint"))
+                            .font(.subheadline)
+                            .foregroundColor(Color(hex: theme.textSecondary))
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                            .padding(32)
+                    } else {
+                    List {
+                        ForEach(Array(categoriesBySection.enumerated()), id: \.offset) { _, pair in
+                            DisclosureGroup(
+                                isExpanded: Binding(
+                                    get: { expandedSections.contains(pair.section) },
+                                    set: { expanded in
+                                        if expanded { expandedSections.insert(pair.section) }
+                                        else { expandedSections.remove(pair.section) }
+                                    }
+                                ),
+                                content: {
+                                    ForEach(pair.items) { category in
+                                        Button(action: {
+                                            selectedCategoryId = category.id
+                                            onDismiss()
+                                            dismiss()
+                                        }, label: {
+                                            rowContent(
+                                                icon: category.icon ?? "🍽️",
+                                                name: localizationManager.getCategoryName(category),
+                                                isSelected: selectedCategoryId == category.id
+                                            )
+                                        })
+                                        .buttonStyle(PlainButtonStyle())
+                                        .listRowBackground(Color(hex: theme.cardBackground))
+                                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                    }
+                                },
+                                label: {
+                                    let sectionTitle = pair.section == customizeSectionKey
+                                        ? localizationManager.t("common.sectionCustomize")
+                                        : (pair.section.isEmpty ? " " : localizedSectionTitle(pair.section))
+                                    HStack(spacing: 8) {
+                                        Text(sectionTitle)
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(Color(hex: theme.textSecondary))
+                                            .textCase(.uppercase)
+                                        Text("\(pair.items.count)")
+                                            .font(.caption)
+                                            .foregroundColor(Color(hex: theme.textSecondary).opacity(0.8))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color(hex: theme.borderColor).opacity(0.5))
+                                            .cornerRadius(6)
+                                    }
+                                    .padding(.vertical, 4)
+                                }
+                            )
+                            .listRowBackground(Color(hex: theme.cardBackground))
+                        }
+                        Section {
+                            NavigationLink(destination: CategoriesManagementView()) {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "gearshape.fill")
+                                        .font(.body)
+                                        .foregroundColor(Color(hex: theme.textSecondary))
+                                    Text(localizationManager.t("settings.manageCategories"))
+                                        .font(.subheadline)
+                                        .foregroundColor(Color(hex: theme.textSecondary))
+                                }
+                                .padding(.vertical, 4)
+                            }
+                            .listRowBackground(Color(hex: theme.cardBackground))
+                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    }
+                }
+                .padding(.top, 8)
+            }
+            .onChange(of: searchText) { _, newValue in
+                if newValue.trimmingCharacters(in: .whitespaces).isEmpty {
+                    expandedSections = []
+                } else {
+                    expandedSections = Set(categoriesBySection.map(\.section))
+                }
+            }
+            .navigationTitle(localizationManager.t("categories.chooseTitle"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        onDismiss()
+                        dismiss()
+                    }, label: {
+                        Text(localizationManager.t("common.close"))
+                    })
+                    .foregroundColor(Color(hex: theme.primaryColor))
+                }
+            }
+        }
+    }
+    
+    private func rowContent(icon: String, name: String, isSelected: Bool) -> some View {
+        HStack(spacing: 12) {
+            Text(icon)
+                .font(.title3)
+                .frame(width: 32, height: 32)
+                .background(Color(hex: theme.primaryColor).opacity(0.12))
+                .clipShape(Circle())
+            Text(name)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(Color(hex: theme.textColor))
+                .lineLimit(1)
+            Spacer()
+            if isSelected {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.subheadline)
+                    .foregroundColor(Color(hex: theme.primaryColor))
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Location Picker Sheet (pop-up)
+struct LocationPickerSheet: View {
+    @Binding var selectedLocationId: String?
+    @Binding var searchText: String
+    let onDismiss: () -> Void
+    @EnvironmentObject var dataStore: DataStore
+    @EnvironmentObject var themeManager: ThemeManager
+    @EnvironmentObject var localizationManager: LocalizationManager
+    @Environment(\.dismiss) private var dismiss
+    @State private var expandedSections: Set<String> = []
+    
+    private var theme: AppTheme { themeManager.currentTheme }
+    
+    private let mergedLocationSectionKey = "Customization"
+    
+    private func localizedLocationSectionTitle(_ section: String) -> String {
+        let t = section.trimmingCharacters(in: .whitespaces).lowercased()
+        if t.isEmpty || t == "customization" { return localizationManager.t("locations.sectionCustomization") }
+        let key: String
+        switch t {
+        case "food": key = "section.food"
+        case "beverages": key = "section.beverages"
+        case "other": key = "section.other"
+        case "health": key = "section.health"
+        case "personal care": key = "section.personalCare"
+        case "home": key = "section.home"
+        case "documents": key = "section.documents"
+        case "pets": key = "section.pets"
+        case "others": key = "section.others"
+        case "kitchen": key = "section.kitchen"
+        case "home storage": key = "section.homeStorage"
+        case "bathroom": key = "section.bathroom"
+        case "office": key = "section.office"
+        case "travel": key = "section.travel"
+        default: return section
+        }
+        let translated = localizationManager.t(key)
+        return translated != key ? translated : section
+    }
+    
+    private func normalizedLocationSection(_ section: String?) -> String {
+        let t = (section ?? "").trimmingCharacters(in: .whitespaces).lowercased()
+        if t.isEmpty || t == "other" { return mergedLocationSectionKey }
+        return section ?? ""
+    }
+    
+    private var locationsBySection: [(section: String, items: [Location])] {
+        let term = searchText.trimmingCharacters(in: .whitespaces).lowercased()
+        var list = dataStore.visibleDisplayLocations
+        if !term.isEmpty {
+            list = list.filter { localizationManager.getLocationDisplayName($0).lowercased().contains(term) }
+        }
+        var map: [String: [Location]] = [:]
+        for loc in list {
+            let key = normalizedLocationSection(loc.section)
+            map[key, default: []].append(loc)
+        }
+        var order: [String] = []
+        for loc in list {
+            let key = normalizedLocationSection(loc.section)
+            if !order.contains(key) { order.append(key) }
+        }
+        if order.contains(mergedLocationSectionKey) {
+            order.removeAll { $0 == mergedLocationSectionKey }
+            order.insert(mergedLocationSectionKey, at: 0)
+        }
+        return order.map { (section: $0, items: map[$0] ?? []) }
+    }
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(hex: theme.backgroundColor).ignoresSafeArea()
+                VStack(alignment: .leading, spacing: 12) {
+                    TextField(localizationManager.t("locations.searchPlaceholder"), text: $searchText)
+                        .font(.subheadline)
+                        .padding(10)
+                        .background(Color(hex: theme.cardBackground))
+                        .foregroundColor(Color(hex: theme.textColor))
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+                        )
+                        .padding(.horizontal)
+                    
+                    if dataStore.visibleDisplayLocations.isEmpty {
+                        Text(localizationManager.t("locations.noLocationsHint"))
+                            .font(.subheadline)
+                            .foregroundColor(Color(hex: theme.textSecondary))
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                            .padding(32)
+                    } else {
+                    List {
+                        ForEach(Array(locationsBySection.enumerated()), id: \.offset) { _, pair in
+                            let sectionTitle = (pair.section.isEmpty || pair.section == mergedLocationSectionKey)
+                                ? localizationManager.t("locations.sectionCustomization")
+                                : localizedLocationSectionTitle(pair.section)
+                            DisclosureGroup(
+                                isExpanded: Binding(
+                                    get: { expandedSections.contains(pair.section) },
+                                    set: { expanded in
+                                        if expanded { expandedSections.insert(pair.section) }
+                                        else { expandedSections.remove(pair.section) }
+                                    }
+                                ),
+                                content: {
+                                    ForEach(pair.items) { location in
+                                        Button(action: {
+                                            selectedLocationId = location.id
+                                            onDismiss()
+                                            dismiss()
+                                        }, label: {
+                                            HStack(spacing: 12) {
+                                                Text(location.icon ?? "📍")
+                                                    .font(.title3)
+                                                    .frame(width: 32, height: 32)
+                                                    .background(Color(hex: theme.primaryColor).opacity(0.12))
+                                                    .clipShape(Circle())
+                                                Text(localizationManager.getLocationDisplayName(location))
+                                                    .font(.subheadline)
+                                                    .fontWeight(.medium)
+                                                    .foregroundColor(Color(hex: theme.textColor))
+                                                    .lineLimit(1)
+                                                Spacer()
+                                                if selectedLocationId == location.id {
+                                                    Image(systemName: "checkmark.circle.fill")
+                                                        .font(.subheadline)
+                                                        .foregroundColor(Color(hex: theme.primaryColor))
+                                                }
+                                            }
+                                            .padding(.vertical, 4)
+                                            .contentShape(Rectangle())
+                                        })
+                                        .buttonStyle(PlainButtonStyle())
+                                        .listRowBackground(Color(hex: theme.cardBackground))
+                                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                    }
+                                },
+                                label: {
+                                    HStack(spacing: 8) {
+                                        Text(sectionTitle.isEmpty ? " " : sectionTitle)
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(Color(hex: theme.textSecondary))
+                                            .textCase(.uppercase)
+                                        Text("\(pair.items.count)")
+                                            .font(.caption)
+                                            .foregroundColor(Color(hex: theme.textSecondary).opacity(0.8))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color(hex: theme.borderColor).opacity(0.5))
+                                            .cornerRadius(6)
+                                    }
+                                    .padding(.vertical, 4)
+                                }
+                            )
+                            .listRowBackground(Color(hex: theme.cardBackground))
+                        }
+                        Section {
+                            NavigationLink(destination: LocationsManagementView()) {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "gearshape.fill")
+                                        .font(.body)
+                                        .foregroundColor(Color(hex: theme.textSecondary))
+                                    Text(localizationManager.t("settings.manageLocations"))
+                                        .font(.subheadline)
+                                        .foregroundColor(Color(hex: theme.textSecondary))
+                                }
+                                .padding(.vertical, 4)
+                            }
+                            .listRowBackground(Color(hex: theme.cardBackground))
+                            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    }
+                }
+                .padding(.top, 8)
+            }
+            .onChange(of: searchText) { _, newValue in
+                if newValue.trimmingCharacters(in: .whitespaces).isEmpty {
+                    expandedSections = []
+                } else {
+                    expandedSections = Set(locationsBySection.map(\.section))
+                }
+            }
+            .navigationTitle(localizationManager.t("locations.chooseTitle"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        onDismiss()
+                        dismiss()
+                    }, label: {
+                        Text(localizationManager.t("common.close"))
+                    })
+                    .foregroundColor(Color(hex: theme.primaryColor))
+                }
+            }
         }
     }
 }

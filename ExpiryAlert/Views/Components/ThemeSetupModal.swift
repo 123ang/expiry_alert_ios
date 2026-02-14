@@ -109,83 +109,75 @@ struct ThemeSetupModal: View {
     }
     
     private func applyThemes() {
-        guard let groupId = dataStore.activeGroupId else { return }
+        guard dataStore.activeGroupId != nil else { return }
         isApplying = true
         
         Task {
-            do {
-                // Get existing categories to avoid duplicates
-                let existingKeys = Set(dataStore.categories.compactMap { $0.translationKey })
-                let existingNames = Set(dataStore.categories.map { $0.name.lowercased() })
-                
-                // Find categories to create
-                var categoriesToCreate: [(name: String, icon: String, key: String)] = []
-                
-                for themeData in ALL_CATEGORY_THEMES {
-                    for catData in themeData.categories {
-                        if selectedCategories.contains(catData.translationKey) {
-                            let name = localizationManager.t(catData.translationKey)
-                            // Skip if already exists by key or name
-                            if !existingKeys.contains(catData.translationKey) &&
-                               !existingNames.contains(name.lowercased()) {
-                                categoriesToCreate.append((
-                                    name: name,
-                                    icon: catData.icon,
-                                    key: catData.translationKey
-                                ))
-                            }
+            // Get existing categories to avoid duplicates
+            let existingKeys = Set(dataStore.displayCategories.compactMap { $0.translationKey })
+            let existingNames = Set(dataStore.displayCategories.map { $0.name.lowercased() })
+            
+            // Find categories to create
+            var categoriesToCreate: [(name: String, icon: String, key: String)] = []
+            
+            for themeData in ALL_CATEGORY_THEMES {
+                for catData in themeData.categories {
+                    if selectedCategories.contains(catData.translationKey) {
+                        let name = localizationManager.t(catData.translationKey)
+                        // Skip if already exists by key or name
+                        if !existingKeys.contains(catData.translationKey) &&
+                           !existingNames.contains(name.lowercased()) {
+                            categoriesToCreate.append((
+                                name: name,
+                                icon: catData.icon,
+                                key: catData.translationKey
+                            ))
                         }
                     }
                 }
-                
-                // Create categories sequentially; skip 409 (already exists)
-                var added = 0
-                var skipped = 0
-                for (name, icon, _) in categoriesToCreate {
-                    do {
-                        try await dataStore.createCategory(name: name, icon: icon)
-                        added += 1
-                        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
-                    } catch let err as APIError {
-                        if case .serverError(409, _) = err {
-                            skipped += 1
-                            continue
-                        }
-                        await MainActor.run {
-                            isApplying = false
-                            errorMessage = err.localizedDescription
-                            showError = true
-                        }
-                        return
-                    } catch {
-                        await MainActor.run {
-                            isApplying = false
-                            errorMessage = error.localizedDescription
-                            showError = true
-                        }
-                        return
+            }
+            
+            // Create categories sequentially; skip 409 (already exists)
+            var added = 0
+            var skipped = 0
+            for (name, icon, _) in categoriesToCreate {
+                do {
+                    try await dataStore.createCategory(name: name, icon: icon)
+                    added += 1
+                    try await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+                } catch let err as APIError {
+                    if case .serverError(409, _) = err {
+                        skipped += 1
+                        continue
                     }
-                }
-                
-                // Refresh categories so the list updates
-                await dataStore.refreshCategories()
-                
-                await MainActor.run {
-                    isApplying = false
-                    if added > 0 {
-                        dismiss()
-                    } else if skipped > 0 {
-                        errorMessage = "All selected categories already exist in this group."
+                    await MainActor.run {
+                        isApplying = false
+                        errorMessage = err.localizedDescription
                         showError = true
-                    } else {
-                        dismiss()
                     }
+                    return
+                } catch {
+                    await MainActor.run {
+                        isApplying = false
+                        errorMessage = error.localizedDescription
+                        showError = true
+                    }
+                    return
                 }
-            } catch {
-                await MainActor.run {
-                    isApplying = false
-                    errorMessage = error.localizedDescription
+            }
+            
+            // Refresh categories so the list updates
+            await dataStore.refreshCategories()
+            
+            await MainActor.run {
+                isApplying = false
+                if added > 0 {
+                    dismiss()
+                } else if skipped > 0 {
+                    errorMessage = "All selected categories already exist in this group."
                     showError = true
+                } else {
+                    dismiss()
                 }
             }
         }

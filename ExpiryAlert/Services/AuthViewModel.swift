@@ -73,4 +73,13 @@ class AuthViewModel: ObservableObject {
         self.user = nil
         self.isAuthenticated = false
     }
+    
+    func updateEmail(_ email: String) async throws {
+        let updated = try await APIService.shared.updateProfile(fullName: nil, languagePreference: nil, email: email)
+        self.user = updated
+    }
+    
+    func changePassword(currentPassword: String, newPassword: String) async throws {
+        try await APIService.shared.changePassword(currentPassword: currentPassword, newPassword: newPassword)
+    }
 }

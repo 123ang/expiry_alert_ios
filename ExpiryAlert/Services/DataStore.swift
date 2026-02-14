@@ -1,6 +1,19 @@
 import SwiftUI
 import Combine
 
+private let selectedCategoryIdsKey = "selectedCategoryIds"
+private let selectedLocationIdsKey = "selectedLocationIds"
+private let activeGroupIdKey = "active_group_id"
+private let hasAppliedInitialCategorySelectionKey = "hasAppliedInitialCategorySelection"
+
+/// Translation keys for categories selected by default on first install (Dairy, Vegetables, Meat, Snacks).
+private let defaultSelectedCategoryTranslationKeys: Set<String> = [
+    "defaultCategory.dairy",
+    "defaultCategory.vegetables",
+    "defaultCategory.meatSeafood",
+    "defaultCategory.snacks"
+]
+
 @MainActor
 class DataStore: ObservableObject {
     // MARK: - Published State
@@ -37,6 +50,188 @@ class DataStore: ObservableObject {
         (foodItems.count, freshItems.count, expiringItems.count, expiredItems.count)
     }
     
+    /// Category IDs the user has selected to show. Empty = show all.
+    @Published var selectedCategoryIds: Set<String> = {
+        let raw = UserDefaults.standard.string(forKey: selectedCategoryIdsKey) ?? ""
+        return raw.isEmpty ? [] : Set(raw.split(separator: ",").map { String($0) })
+    }() {
+        didSet {
+            let raw = selectedCategoryIds.sorted().joined(separator: ",")
+            UserDefaults.standard.set(raw, forKey: selectedCategoryIdsKey)
+        }
+    }
+    
+    /// Categories to show in pickers/dashboard when user has made a selection. Empty selection = all.
+    var visibleCategories: [Category] {
+        if selectedCategoryIds.isEmpty { return categories }
+        return categories.filter { selectedCategoryIds.contains($0.id) }
+    }
+    
+    /// Hide debug/test categories from UI (e.g. "DebugTestCategory").
+    private static func isDebugCategory(_ category: Category) -> Bool {
+        let name = category.name.trimmingCharacters(in: .whitespaces).lowercased()
+        return name == "debugtestcategory"
+    }
+    
+    /// Hide "Other" category from UI (user requested removal).
+    private static func isOtherCategory(_ category: Category) -> Bool {
+        let name = category.name.trimmingCharacters(in: .whitespaces).lowercased()
+        return name == "other"
+    }
+    
+    /// User-added (customization) category: always show in pickers so new custom categories can be chosen when adding items.
+    private static func isCustomizationCategory(_ category: Category) -> Bool {
+        if let custom = category.isCustomization { return custom }
+        return category.isDefault != true
+    }
+    
+    /// Categories for display: excludes debug/test and "Other" entries.
+    var displayCategories: [Category] {
+        categories.filter { !Self.isDebugCategory($0) && !Self.isOtherCategory($0) }
+    }
+    
+    /// Visible categories for pickers/dashboard. When user has a category selection, still include all customization (user-added) categories so they always appear in Add Item.
+    var visibleDisplayCategories: [Category] {
+        if selectedCategoryIds.isEmpty { return displayCategories }
+        return displayCategories.filter { selectedCategoryIds.contains($0.id) || Self.isCustomizationCategory($0) }
+    }
+    
+    /// Toggle whether a category is selected (shown in pickers). Empty set = all selected.
+    func toggleCategorySelection(id: String) {
+        let allIds = Set(categories.map(\.id))
+        if selectedCategoryIds.isEmpty {
+            selectedCategoryIds = allIds.subtracting([id])
+        } else {
+            if selectedCategoryIds.contains(id) {
+                selectedCategoryIds = selectedCategoryIds.subtracting([id])
+            } else {
+                selectedCategoryIds = selectedCategoryIds.union([id])
+            }
+        }
+    }
+    
+    /// Whether a category is selected (shown). When no selection stored, all are selected.
+    func isCategorySelected(id: String) -> Bool {
+        selectedCategoryIds.isEmpty || selectedCategoryIds.contains(id)
+    }
+    
+    /// On first install, set selected categories to Dairy, Vegetables, Meat, Snacks only. Idempotent after first run.
+    func applyInitialCategorySelectionIfNeeded() {
+        guard !UserDefaults.standard.bool(forKey: hasAppliedInitialCategorySelectionKey) else { return }
+        let display = categories.filter { !Self.isDebugCategory($0) }
+        let defaultIds = Set(display.filter { cat in
+            guard let key = cat.translationKey, !key.isEmpty else { return false }
+            return defaultSelectedCategoryTranslationKeys.contains(key)
+        }.map(\.id))
+        if defaultIds.isEmpty {
+            selectedCategoryIds = Set(display.map(\.id))
+        } else {
+            selectedCategoryIds = defaultIds
+        }
+        UserDefaults.standard.set(true, forKey: hasAppliedInitialCategorySelectionKey)
+    }
+    
+    /// Location IDs the user has selected to show. Empty = show all.
+    @Published var selectedLocationIds: Set<String> = {
+        let raw = UserDefaults.standard.string(forKey: selectedLocationIdsKey) ?? ""
+        return raw.isEmpty ? [] : Set(raw.split(separator: ",").map { String($0) })
+    }() {
+        didSet {
+            let raw = selectedLocationIds.sorted().joined(separator: ",")
+            UserDefaults.standard.set(raw, forKey: selectedLocationIdsKey)
+        }
+    }
+    
+    /// Locations to show in pickers when user has made a selection. Empty selection = all.
+    var visibleLocations: [Location] {
+        if selectedLocationIds.isEmpty { return locations }
+        return locations.filter { selectedLocationIds.contains($0.id) }
+    }
+    
+    // MARK: - Display locations (hide 4 defaults, merge Fridge Top/Middle/Bottom into one)
+    private static let hiddenDefaultLocationKeys: Set<String> = ["defaultLocation.counter"]
+    private static let hiddenDefaultLocationNames: Set<String> = ["basement", "counter", "office", "other"]
+    private static let fridgeVariantKeys: Set<String> = [
+        "defaultLocation.fridge", "defaultLocation.fridgeTop", "defaultLocation.fridgeMiddle", "defaultLocation.fridgeBottom"
+    ]
+    
+    static func isHiddenDefaultLocation(_ location: Location) -> Bool {
+        if let key = location.translationKey, Self.hiddenDefaultLocationKeys.contains(key) { return true }
+        let name = location.name.trimmingCharacters(in: .whitespaces).lowercased()
+        return Self.hiddenDefaultLocationNames.contains(name)
+    }
+    
+    static func isFridgeVariant(_ location: Location) -> Bool {
+        if let key = location.translationKey, Self.fridgeVariantKeys.contains(key) { return true }
+        let name = location.name.trimmingCharacters(in: .whitespaces).lowercased()
+        return name == "fridge (top)" || name == "fridge (middle)" || name == "fridge (bottom)"
+    }
+    
+    /// Filter out hidden defaults (Basement, Counter, Office); merge Fridge Top/Middle/Bottom into one row.
+    static func filterAndMergeLocations(_ list: [Location]) -> [Location] {
+        let filtered = list.filter { !Self.isHiddenDefaultLocation($0) }
+        let fridgeVariants = filtered.filter { Self.isFridgeVariant($0) }
+        let rest = filtered.filter { !Self.isFridgeVariant($0) }
+        let mergedFridge: Location? = fridgeVariants.sorted { a, b in
+            let aOrder = a.sortOrder ?? Int.max
+            let bOrder = b.sortOrder ?? Int.max
+            if aOrder != bOrder { return aOrder < bOrder }
+            return a.id.compare(b.id) == .orderedAscending
+        }.first
+        var result = rest
+        if let one = mergedFridge { result.append(one) }
+        result.sort { a, b in
+            let aDef = a.isDefault == true
+            let bDef = b.isDefault == true
+            if aDef != bDef { return aDef }
+            let aOrder = a.sortOrder ?? Int.max
+            let bOrder = b.sortOrder ?? Int.max
+            if aOrder != bOrder { return aOrder < bOrder }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
+        return result
+    }
+    
+    /// Locations for UI: hidden defaults removed, Fridge Top/Middle/Bottom shown as one.
+    var displayLocations: [Location] {
+        Self.filterAndMergeLocations(locations)
+    }
+    
+    /// Visible locations with same filter/merge for pickers.
+    var visibleDisplayLocations: [Location] {
+        Self.filterAndMergeLocations(visibleLocations)
+    }
+    
+    /// IDs of locations that are Fridge (Top/Middle/Bottom) for merged row selection.
+    var fridgeVariantIds: Set<String> {
+        Set(locations.filter { Self.isFridgeVariant($0) }.map(\.id))
+    }
+    
+    func toggleLocationSelection(id: String) {
+        let fridgeIds = fridgeVariantIds
+        let idsToToggle: Set<String> = fridgeIds.contains(id) ? fridgeIds : [id]
+        let allIds = Set(locations.map(\.id))
+        if selectedLocationIds.isEmpty {
+            selectedLocationIds = allIds.subtracting(idsToToggle)
+        } else {
+            let anySelected = idsToToggle.contains(where: { selectedLocationIds.contains($0) })
+            if anySelected {
+                selectedLocationIds = selectedLocationIds.subtracting(idsToToggle)
+            } else {
+                selectedLocationIds = selectedLocationIds.union(idsToToggle)
+            }
+        }
+    }
+    
+    func isLocationSelected(id: String) -> Bool {
+        if selectedLocationIds.isEmpty { return true }
+        let fridgeIds = fridgeVariantIds
+        if fridgeIds.contains(id) {
+            return fridgeIds.contains(where: { selectedLocationIds.contains($0) })
+        }
+        return selectedLocationIds.contains(id)
+    }
+    
     // MARK: - Configuration
     func configure(authViewModel: AuthViewModel) {
         self.authViewModel = authViewModel
@@ -55,9 +250,15 @@ class DataStore: ObservableObject {
             // Load groups first
             groups = try await APIService.shared.getGroups()
             
-            // Auto-select first group if none selected
-            if activeGroupId == nil, let first = groups.first {
-                activeGroupId = first.id
+            // Restore last selected group from UserDefaults, or auto-select first if none saved or saved group no longer exists
+            let savedGroupId = UserDefaults.standard.string(forKey: activeGroupIdKey)
+            if let saved = savedGroupId, groups.contains(where: { $0.id == saved }) {
+                activeGroupId = saved
+            } else if activeGroupId == nil || (activeGroupId != nil && !groups.contains(where: { $0.id == activeGroupId! })) {
+                if let first = groups.first {
+                    activeGroupId = first.id
+                    UserDefaults.standard.set(first.id, forKey: activeGroupIdKey)
+                }
             }
             
             // Load group-specific data; merge default categories/locations (from DB, is_default=true) with group's custom ones.
@@ -68,7 +269,7 @@ class DataStore: ObservableObject {
                 async let defaultLocs = APIService.shared.getLocations(groupId: nil)
                 async let groupLocs = APIService.shared.getLocations(groupId: groupId)
                 async let items = APIService.shared.getFoodItems(groupId: groupId)
-                async let shopping = APIService.shared.getShoppingItems(groupId: groupId)
+                async let shopping = APIService.shared.getShoppingItems(groupId: groupId, includePurchased: true)
                 async let wishes = APIService.shared.getWishItems(groupId: groupId)
                 
                 let dCats = (try? await defaultCats) ?? []
@@ -77,6 +278,7 @@ class DataStore: ObservableObject {
                 let gLocs = (try? await groupLocs) ?? []
                 categories = DataStore.mergeDefaultsWithGroup(defaults: dCats, groupItems: gCats)
                 locations = DataStore.mergeDefaultsWithGroup(defaults: dLocs, groupItems: gLocs)
+                applyInitialCategorySelectionIfNeeded()
                 foodItems = try await items
                 shoppingItems = try await shopping
                 wishItems = try await wishes
@@ -120,6 +322,7 @@ class DataStore: ObservableObject {
         } else {
             categories = sortCategories(dCats)
         }
+        applyInitialCategorySelectionIfNeeded()
     }
     
     func refreshLocations() async {
@@ -204,7 +407,7 @@ class DataStore: ObservableObject {
     // MARK: - Switch Group
     func switchGroup(to groupId: String) async {
         activeGroupId = groupId
-        UserDefaults.standard.set(groupId, forKey: "active_group_id")
+        UserDefaults.standard.set(groupId, forKey: activeGroupIdKey)
         await loadAll()
     }
     
@@ -232,7 +435,8 @@ class DataStore: ObservableObject {
         groups.removeAll { $0.id == id }
         if activeGroupId == id {
             activeGroupId = groups.first?.id
-            if activeGroupId != nil {
+            if let newId = activeGroupId {
+                UserDefaults.standard.set(newId, forKey: activeGroupIdKey)
                 await loadAll()
             }
         }
@@ -318,8 +522,18 @@ class DataStore: ObservableObject {
     }
     
     func deleteCategory(id: String) async throws {
-        try await APIService.shared.deleteCategory(id: id)
+        let previous = categories
+        var newSelected = selectedCategoryIds
+        newSelected.remove(id)
+        selectedCategoryIds = newSelected
         categories.removeAll { $0.id == id }
+        do {
+            try await APIService.shared.deleteCategory(id: id)
+        } catch {
+            categories = previous
+            selectedCategoryIds = selectedCategoryIds.union([id])
+            throw error
+        }
     }
     
     // MARK: - Location CRUD
@@ -336,19 +550,63 @@ class DataStore: ObservableObject {
     }
     
     func deleteLocation(id: String) async throws {
-        try await APIService.shared.deleteLocation(id: id)
+        let previous = locations
+        var newSelected = selectedLocationIds
+        newSelected.remove(id)
+        selectedLocationIds = newSelected
         locations.removeAll { $0.id == id }
+        do {
+            try await APIService.shared.deleteLocation(id: id)
+        } catch {
+            locations = previous
+            selectedLocationIds = selectedLocationIds.union([id])
+            throw error
+        }
     }
     
     // MARK: - Shopping Item CRUD
     func createShoppingItem(_ data: [String: Any]) async throws {
-        let item = try await APIService.shared.createShoppingItem(item: data)
+        var item = try await APIService.shared.createShoppingItem(item: data)
+        // If the API doesn't return where_to_buy in the response, keep the value we sent so the list shows it
+        if item.whereToBuy == nil, let sent = data["where_to_buy"] as? String, !sent.trimmingCharacters(in: .whitespaces).isEmpty {
+            item.whereToBuy = sent.trimmingCharacters(in: .whitespaces)
+        }
         shoppingItems.append(item)
     }
     
     func toggleShoppingItem(id: String) async throws {
-        let updated = try await APIService.shared.toggleShoppingItem(id: id)
+        guard let index = shoppingItems.firstIndex(where: { $0.id == id }) else { return }
+        let previous = shoppingItems[index]
+        var optimistic = previous
+        optimistic.isPurchased.toggle()
+        shoppingItems[index] = optimistic
+        do {
+            let updated = try await APIService.shared.toggleShoppingItem(id: id)
+            shoppingItems[index] = updated
+        } catch {
+            shoppingItems[index] = previous
+            throw error
+        }
+    }
+    
+    func updateShoppingItem(id: String, updates: [String: Any]) async throws {
+        let updated = try await APIService.shared.updateShoppingItem(id: id, updates: updates)
         if let index = shoppingItems.firstIndex(where: { $0.id == id }) {
+            shoppingItems[index] = updated
+        }
+    }
+    
+    /// Mark shopping item as moved to inventory (after user adds it via Add Item flow).
+    func markShoppingItemMovedToInventory(id: String, inventoryItemId: String) async throws {
+        try await updateShoppingItem(id: id, updates: [
+            "moved_to_inventory": true,
+            "inventory_item_id": inventoryItemId
+        ])
+        // Ensure local state reflects moved state (API may not return new fields yet)
+        if let index = shoppingItems.firstIndex(where: { $0.id == id }) {
+            var updated = shoppingItems[index]
+            updated.movedToInventory = true
+            updated.inventoryItemId = inventoryItemId
             shoppingItems[index] = updated
         }
     }
@@ -367,6 +625,13 @@ class DataStore: ObservableObject {
     func createWishItem(_ data: [String: Any]) async throws {
         let item = try await APIService.shared.createWishItem(item: data)
         wishItems.append(item)
+    }
+    
+    func updateWishItem(id: String, updates: [String: Any]) async throws {
+        let updated = try await APIService.shared.updateWishItem(id: id, updates: updates)
+        if let index = wishItems.firstIndex(where: { $0.id == id }) {
+            wishItems[index] = updated
+        }
     }
     
     func deleteWishItem(id: String) async throws {

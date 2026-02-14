@@ -132,3 +132,30 @@ struct NotificationsView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 }
+
+// MARK: - Settings Section (reusable titled card for settings screens)
+struct SettingsSection<Content: View>: View {
+    let title: String
+    let theme: AppTheme
+    @ViewBuilder let content: () -> Content
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(Color(hex: theme.textSecondary))
+            VStack(alignment: .leading, spacing: 12) {
+                content()
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(hex: theme.cardBackground))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+            )
+        }
+    }
+}

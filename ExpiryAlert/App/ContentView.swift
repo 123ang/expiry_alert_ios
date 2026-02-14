@@ -24,6 +24,8 @@ struct ContentView: View {
 
 // MARK: - Splash Screen
 struct SplashScreenView: View {
+    @EnvironmentObject var localizationManager: LocalizationManager
+    
     var body: some View {
         ZStack {
             Color(hex: "#006b29")
@@ -36,7 +38,7 @@ struct SplashScreenView: View {
                     .frame(width: 100, height: 100)
                     .foregroundColor(.white)
                 
-                Text("Expiry Alert")
+                Text(localizationManager.t("app.name"))
                     .font(.largeTitle)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
@@ -45,7 +47,7 @@ struct SplashScreenView: View {
                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     .scaleEffect(1.2)
                 
-                Text("Loading...")
+                Text(localizationManager.t("status.loading"))
                     .font(.subheadline)
                     .foregroundColor(.white.opacity(0.8))
             }
@@ -69,12 +71,11 @@ struct MainTabView: View {
                 contentView
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
-                // Spacer for tab bar height
+                // Spacer for tab bar height (content stays above bar)
                 Color.clear
                     .frame(height: tabBarHeight)
             }
             
-            // Custom tab bar overlay
             CustomTabBar(
                 selectedTab: $selectedTab,
                 showAddItem: $showAddItem,
@@ -82,6 +83,7 @@ struct MainTabView: View {
                 localizationManager: localizationManager
             )
         }
+        .ignoresSafeArea(edges: .bottom)
         .ignoresSafeArea(.keyboard)
         .sheet(isPresented: $showAddItem) {
             AddItemView()
@@ -114,16 +116,16 @@ struct MainTabView: View {
     }
     
     private var tabBarHeight: CGFloat {
-        // Tab bar height: 12 (top padding) + 20 (icon) + 4 (spacing) + 12 (text) + bottom safe area
+        // Tab bar height: 8 (top) + 20 (icon) + 4 (spacing) + 12 (text) + bottom inset (lesser footer space)
         #if os(iOS)
         let window = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .flatMap { $0.windows }
             .first { $0.isKeyWindow }
         let bottomInset = window?.safeAreaInsets.bottom ?? 0
-        return 12 + 20 + 4 + 12 + 12 + bottomInset
+        return 8 + 20 + 4 + 12 + (bottomInset > 0 ? bottomInset : 12)
         #else
-        return 60
+        return 56
         #endif
     }
 }

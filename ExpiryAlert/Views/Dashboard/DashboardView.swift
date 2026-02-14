@@ -8,9 +8,43 @@ struct DashboardView: View {
     
     @State private var showAddItem = false
     @State private var showGroupPicker = false
+    @State private var homeFilterMode: HomeFilterMode = .all
+    @State private var selectedCategoryId: String?
+    @State private var selectedLocationId: String?
+    @State private var statusSheet: StatusSheetType?
     
     private var theme: AppTheme { themeManager.currentTheme }
+    
+    enum StatusSheetType: Identifiable {
+        case inDate
+        case expiringSoon
+        case expired
+        var id: Self { self }
+    }
     private var counts: (total: Int, fresh: Int, expiring: Int, expired: Int) { dataStore.dashboardCounts }
+    
+    enum HomeFilterMode: String, CaseIterable {
+        case all
+        case byCategory
+        case byLocation
+    }
+    
+    private var filteredFoodItems: [FoodItem] {
+        let items = dataStore.foodItems
+        switch homeFilterMode {
+        case .all:
+            return items
+        case .byCategory:
+            guard let id = selectedCategoryId else { return items }
+            return items.filter { $0.categoryId == id }
+        case .byLocation:
+            guard let id = selectedLocationId else { return items }
+            if dataStore.fridgeVariantIds.contains(id) {
+                return items.filter { $0.locationId.map { dataStore.fridgeVariantIds.contains($0) } ?? false }
+            }
+            return items.filter { $0.locationId == id }
+        }
+    }
     
     var body: some View {
         ZStack {
@@ -27,26 +61,8 @@ struct DashboardView: View {
                     // Three stat cards: Fresh, Expiring, Expired
                     threeStatCardsSection
                     
-                    // Storage Locations section with grid
-                    StorageLocationsSection(
-                        locations: dataStore.locations,
-                        foodItems: dataStore.foodItems,
-                        theme: theme,
-                        localizationManager: localizationManager
-                    )
-                    
-                    // Categories section with grid
-                    CategoriesSection(
-                        categories: dataStore.categories,
-                        foodItems: dataStore.foodItems,
-                        theme: theme,
-                        localizationManager: localizationManager
-                    )
-                    
-                    // Expiring Soon (if any)
-                    if !dataStore.expiringItems.isEmpty {
-                        expiringSoonSection
-                    }
+                    // My Items with filter (by category or location)
+                    myItemsSection
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 100)
@@ -61,6 +77,9 @@ struct DashboardView: View {
         }
         .sheet(isPresented: $showGroupPicker) {
             groupPickerSheet
+        }
+        .sheet(item: $statusSheet) { type in
+            statusItemsSheet(type: type)
         }
         .task {
             if dataStore.foodItems.isEmpty {
@@ -92,7 +111,7 @@ struct DashboardView: View {
     // MARK: - Welcome Card (green) with group selector
     private var welcomeCardSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Welcome Back!")
+            Text(localizationManager.t("home.welcome"))
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(.white)
@@ -107,7 +126,7 @@ struct DashboardView: View {
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
                                 .foregroundColor(Color(hex: theme.textColor))
-                            Text("Your personal food management group.")
+                            Text(localizationManager.t("home.groupSubtitle"))
                                 .font(.caption)
                                 .foregroundColor(Color(hex: theme.textSecondary))
                         }
@@ -117,7 +136,7 @@ struct DashboardView: View {
                             .foregroundColor(Color(hex: theme.textSecondary))
                     }
                     .padding(12)
-                    .background(Color.white)
+                    .background(Color(hex: theme.cardBackground))
                     .cornerRadius(12)
                 }
                 .buttonStyle(.plain)
@@ -145,74 +164,283 @@ struct DashboardView: View {
            let group = dataStore.groups.first(where: { $0.id == id }) {
             return group.name
         }
-        return "Personal"
+        return localizationManager.t("home.personalGroup")
     }
     
     private var groupPickerSheet: some View {
         NavigationStack {
-            List(dataStore.groups) { group in
-                Button(action: {
-                    Task { await dataStore.switchGroup(to: group.id) }
-                    showGroupPicker = false
-                }) {
-                    HStack {
-                        Text(group.name)
-                            .foregroundColor(Color(hex: theme.textColor))
-                        if group.id == dataStore.activeGroupId {
-                            Spacer()
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(Color(hex: theme.primaryColor))
+            ZStack {
+                Color(hex: theme.backgroundColor).ignoresSafeArea()
+                List(dataStore.groups) { group in
+                    Button(action: {
+                        Task { await dataStore.switchGroup(to: group.id) }
+                        showGroupPicker = false
+                    }) {
+                        HStack {
+                            Text(group.name)
+                                .font(.body)
+                                .foregroundColor(Color(hex: theme.textColor))
+                            if group.id == dataStore.activeGroupId {
+                                Spacer()
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(Color(hex: theme.primaryColor))
+                            }
                         }
+                        .padding(.vertical, 4)
                     }
+                    .listRowBackground(Color(hex: theme.cardBackground))
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
-            .navigationTitle("Select Group")
+            .navigationTitle(localizationManager.t("groups.selectGroup"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(hex: theme.cardBackground), for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { showGroupPicker = false }
+                    Button(localizationManager.t("common.done")) { showGroupPicker = false }
+                        .fontWeight(.semibold)
                         .foregroundColor(Color(hex: theme.primaryColor))
                 }
             }
         }
     }
     
-    // MARK: - Three stat cards in a row (Fresh, Expiring, Expired)
+    // MARK: - Three stat cards in a row (tappable → pop-up with items)
     private var threeStatCardsSection: some View {
         HStack(spacing: 12) {
-            StatCard(title: localizationManager.t("home.indate"), count: counts.fresh,
-                     icon: "checkmark.circle.fill", color: theme.successColor, theme: theme)
-            StatCard(title: localizationManager.t("status.expiringSoon"), count: counts.expiring,
-                     icon: "clock.fill", color: theme.warningColor, theme: theme)
-            StatCard(title: localizationManager.t("home.expired"), count: counts.expired,
-                     icon: "exclamationmark.triangle.fill", color: theme.dangerColor, theme: theme)
+            Button(action: { statusSheet = .inDate }) {
+                StatCard(title: localizationManager.t("home.indate"), count: counts.fresh,
+                         icon: "checkmark.circle.fill", color: theme.successColor, theme: theme)
+            }
+            .buttonStyle(PlainButtonStyle())
+            Button(action: { statusSheet = .expiringSoon }) {
+                StatCard(title: localizationManager.t("status.expiringSoon"), count: counts.expiring,
+                         icon: "clock.fill", color: theme.warningColor, theme: theme)
+            }
+            .buttonStyle(PlainButtonStyle())
+            Button(action: { statusSheet = .expired }) {
+                StatCard(title: localizationManager.t("home.expired"), count: counts.expired,
+                         icon: "exclamationmark.triangle.fill", color: theme.dangerColor, theme: theme)
+            }
+            .buttonStyle(PlainButtonStyle())
         }
     }
     
-    // MARK: - Expiring Soon
-    private var expiringSoonSection: some View {
+    private func statusItemsSheet(type: StatusSheetType) -> some View {
+        let (title, items) = statusSheetContent(for: type)
+        return NavigationStack {
+            ZStack {
+                Color(hex: theme.backgroundColor).ignoresSafeArea()
+                List {
+                    if items.isEmpty {
+                        Section {
+                            Text(emptyStatusMessage(for: type))
+                                .font(.subheadline)
+                                .foregroundColor(Color(hex: theme.textSecondary))
+                                .frame(maxWidth: .infinity)
+                                .listRowBackground(Color(hex: theme.backgroundColor))
+                        }
+                    } else {
+                        ForEach(items) { item in
+                            NavigationLink(destination: ItemDetailView(itemId: item.id)) {
+                                FoodItemRow(item: item, theme: theme, localizationManager: localizationManager)
+                                    .padding(.vertical, 4)
+                            }
+                            .listRowBackground(Color(hex: theme.cardBackground))
+                        }
+                    }
+                }
+                .scrollContentBackground(.hidden)
+                .listStyle(.plain)
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(hex: theme.backgroundColor), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(localizationManager.t("common.close")) {
+                        statusSheet = nil
+                    }
+                    .foregroundColor(Color(hex: theme.primaryColor))
+                }
+            }
+        }
+    }
+    
+    private func statusSheetContent(for type: StatusSheetType) -> (title: String, items: [FoodItem]) {
+        switch type {
+        case .inDate:
+            return (localizationManager.t("home.indate"), dataStore.freshItems)
+        case .expiringSoon:
+            return (localizationManager.t("status.expiringSoon"), dataStore.expiringItems)
+        case .expired:
+            return (localizationManager.t("home.expired"), dataStore.expiredItems)
+        }
+    }
+    
+    private func emptyStatusMessage(for type: StatusSheetType) -> String {
+        switch type {
+        case .inDate: return "No in-date items."
+        case .expiringSoon: return "No items expiring soon."
+        case .expired: return "No expired items."
+        }
+    }
+    
+    // MARK: - My Items (with filter by category or location)
+    private var myItemsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(localizationManager.t("status.expiringSoon"))
+                Text(localizationManager.t("home.myItems"))
                     .font(.headline)
                     .foregroundColor(Color(hex: theme.textColor))
                 Spacer()
-                Text("\(dataStore.expiringItems.count) \(localizationManager.t("home.items"))")
+                Text("\(filteredFoodItems.count) \(localizationManager.t("home.items"))")
                     .font(.subheadline)
                     .foregroundColor(Color(hex: theme.textSecondary))
             }
             
-            ForEach(dataStore.expiringItems.prefix(5)) { item in
-                NavigationLink(destination: ItemDetailView(itemId: item.id)) {
-                    FoodItemRow(item: item, theme: theme, localizationManager: localizationManager)
+            // Filter: All | By Category | By Location
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                        .font(.subheadline)
+                        .foregroundColor(Color(hex: theme.primaryColor))
+                    Text(localizationManager.t("home.filter"))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(Color(hex: theme.textSecondary))
+                }
+                Picker("", selection: $homeFilterMode) {
+                    Text(localizationManager.t("home.filterAll")).tag(HomeFilterMode.all)
+                    Text(localizationManager.t("home.filterByCategory")).tag(HomeFilterMode.byCategory)
+                    Text(localizationManager.t("home.filterByLocation")).tag(HomeFilterMode.byLocation)
+                }
+                .pickerStyle(.segmented)
+                
+                if homeFilterMode == .byCategory {
+                    categoryFilterPicker
+                }
+                if homeFilterMode == .byLocation {
+                    locationFilterPicker
                 }
             }
+            .padding(12)
+            .background(Color(hex: theme.backgroundColor))
+            .cornerRadius(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+            )
+            
+            if filteredFoodItems.isEmpty {
+                Text(listEmptyMessage)
+                    .font(.subheadline)
+                    .foregroundColor(Color(hex: theme.textSecondary))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(filteredFoodItems) { item in
+                        NavigationLink(destination: ItemDetailView(itemId: item.id)) {
+                            FoodItemRow(item: item, theme: theme, localizationManager: localizationManager)
+                                .padding(.vertical, 10)
+                        }
+                        if item.id != filteredFoodItems.last?.id {
+                            Divider()
+                                .padding(.leading, 56)
+                        }
+                    }
+                }
+                .padding(12)
+                .background(Color(hex: theme.cardBackground))
+                .cornerRadius(theme.borderRadius)
+            }
         }
-        .padding(16)
-        .background(Color(hex: theme.cardBackground))
-        .cornerRadius(theme.borderRadius)
     }
-}
+    
+    private var categoryFilterPicker: some View {
+        Menu {
+            Button(localizationManager.t("home.allCategories")) {
+                selectedCategoryId = nil
+            }
+            ForEach(localizationManager.deduplicatedCategories(dataStore.visibleDisplayCategories)) { category in
+                Button(localizationManager.getCategoryName(category)) {
+                    selectedCategoryId = category.id
+                }
+            }
+        } label: {
+            HStack {
+                Text(selectedCategoryName)
+                    .font(.subheadline)
+                    .foregroundColor(Color(hex: theme.textColor))
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(.caption)
+                    .foregroundColor(Color(hex: theme.textSecondary))
+            }
+            .padding(10)
+            .background(Color(hex: theme.cardBackground))
+            .cornerRadius(8)
+        }
+    }
+    
+    private var locationFilterPicker: some View {
+        Menu {
+            Button(localizationManager.t("home.allLocations")) {
+                selectedLocationId = nil
+            }
+            ForEach(dataStore.visibleDisplayLocations) { location in
+                Button(localizationManager.getLocationDisplayName(location)) {
+                    selectedLocationId = location.id
+                }
+            }
+        } label: {
+            HStack {
+                Text(selectedLocationName)
+                    .font(.subheadline)
+                    .foregroundColor(Color(hex: theme.textColor))
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(.caption)
+                    .foregroundColor(Color(hex: theme.textSecondary))
+            }
+            .padding(10)
+            .background(Color(hex: theme.cardBackground))
+            .cornerRadius(8)
+        }
+    }
+    
+    private var selectedCategoryName: String {
+        guard let id = selectedCategoryId,
+              let cat = dataStore.displayCategories.first(where: { $0.id == id }) else {
+            return localizationManager.t("home.allCategories")
+        }
+        return localizationManager.getCategoryName(cat)
+    }
+    
+    private var selectedLocationName: String {
+        guard let id = selectedLocationId,
+              let loc = dataStore.locations.first(where: { $0.id == id }) else {
+            return localizationManager.t("home.allLocations")
+        }
+        return localizationManager.getLocationDisplayName(loc)
+    }
+    
+    private var listEmptyMessage: String {
+        switch homeFilterMode {
+        case .all:
+            return localizationManager.t("list.noItemsYet")
+        case .byCategory:
+            return localizationManager.t("list.noItemsInCategory")
+        case .byLocation:
+            return localizationManager.t("list.noItemsInLocation")
+        }
+    }
+    
+    }
 
 // MARK: - Storage Locations Section with Grid
 struct StorageLocationsSection: View {
@@ -296,10 +524,7 @@ struct LocationCardView: View {
     }
     
     private var resolvedName: String {
-        if let key = location.translationKey {
-            return localizationManager.t(key)
-        }
-        return location.name
+        localizationManager.getLocationDisplayName(location)
     }
 }
 
@@ -385,10 +610,7 @@ struct CategoryCardView: View {
     }
     
     private var resolvedName: String {
-        if let key = category.translationKey {
-            return localizationManager.t(key)
-        }
-        return category.name
+        localizationManager.getCategoryName(category)
     }
 }
 

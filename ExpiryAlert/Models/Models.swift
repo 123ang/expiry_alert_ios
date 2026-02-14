@@ -165,6 +165,8 @@ struct Category: Codable, Identifiable, Hashable {
     /// Display group (e.g. "Food & Drinks", "Health") for default categories
     var section: String?
     var sortOrder: Int?
+    /// True when the category was added by the user (Add Category); only these show edit/remove.
+    var isCustomization: Bool?
     let createdAt: String?
     let updatedAt: String?
     
@@ -175,6 +177,7 @@ struct Category: Codable, Identifiable, Hashable {
         case isDefault = "is_default"
         case section
         case sortOrder = "sort_order"
+        case isCustomization = "is_customization"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
@@ -194,6 +197,8 @@ struct Location: Codable, Identifiable, Hashable {
     /// Display group (e.g. "Kitchen", "Home Storage") for default locations
     var section: String?
     var sortOrder: Int?
+    /// True when the location was added by the user (Add Location); only these show edit/remove.
+    var isCustomization: Bool?
     let createdAt: String?
     let updatedAt: String?
     
@@ -204,6 +209,7 @@ struct Location: Codable, Identifiable, Hashable {
         case isDefault = "is_default"
         case section
         case sortOrder = "sort_order"
+        case isCustomization = "is_customization"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
@@ -351,9 +357,15 @@ struct ShoppingItem: Codable, Identifiable {
     var quantity: Int
     var unit: String?
     var categoryId: String?
+    /// Where to buy (e.g. store name). Optional.
+    var whereToBuy: String?
     var isPurchased: Bool
     var purchasedAt: String?
     var purchasedBy: String?
+    /// True after user has added this item to inventory via "Add to Inventory".
+    var movedToInventory: Bool?
+    /// ID of the inventory (food) item created when "Add to Inventory" was used.
+    var inventoryItemId: String?
     var notes: String?
     let createdAt: String?
     let updatedAt: String?
@@ -363,11 +375,67 @@ struct ShoppingItem: Codable, Identifiable {
         case groupId = "group_id"
         case createdBy = "created_by"
         case categoryId = "category_id"
+        case whereToBuy = "where_to_buy"
         case isPurchased = "is_purchased"
         case purchasedAt = "purchased_at"
         case purchasedBy = "purchased_by"
+        case movedToInventory = "moved_to_inventory"
+        case inventoryItemId = "inventory_item_id"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+    }
+    
+    /// Bought = checkbox checked; applies line-through and "Add to Inventory" when true.
+    var isBought: Bool { isPurchased }
+}
+
+// MARK: - Currency (for wishlist price)
+struct CurrencyOption: Identifiable {
+    let code: String
+    let symbol: String
+    let name: String
+    var id: String { code }
+    
+    static let all: [CurrencyOption] = [
+        CurrencyOption(code: "USD", symbol: "$", name: "US Dollar"),
+        CurrencyOption(code: "EUR", symbol: "€", name: "Euro"),
+        CurrencyOption(code: "GBP", symbol: "£", name: "British Pound"),
+        CurrencyOption(code: "JPY", symbol: "¥", name: "Japanese Yen"),
+        CurrencyOption(code: "CNY", symbol: "¥", name: "Chinese Yuan"),
+        CurrencyOption(code: "AUD", symbol: "A$", name: "Australian Dollar"),
+        CurrencyOption(code: "CAD", symbol: "C$", name: "Canadian Dollar"),
+        CurrencyOption(code: "CHF", symbol: "Fr", name: "Swiss Franc"),
+        CurrencyOption(code: "INR", symbol: "₹", name: "Indian Rupee"),
+        CurrencyOption(code: "KRW", symbol: "₩", name: "South Korean Won"),
+        CurrencyOption(code: "SGD", symbol: "S$", name: "Singapore Dollar"),
+        CurrencyOption(code: "HKD", symbol: "HK$", name: "Hong Kong Dollar"),
+        CurrencyOption(code: "MXN", symbol: "$", name: "Mexican Peso"),
+        CurrencyOption(code: "BRL", symbol: "R$", name: "Brazilian Real"),
+        CurrencyOption(code: "RUB", symbol: "₽", name: "Russian Ruble"),
+        CurrencyOption(code: "ZAR", symbol: "R", name: "South African Rand"),
+        CurrencyOption(code: "AED", symbol: "د.إ", name: "UAE Dirham"),
+        CurrencyOption(code: "MYR", symbol: "RM", name: "Malaysian Ringgit"),
+        CurrencyOption(code: "THB", symbol: "฿", name: "Thai Baht"),
+        CurrencyOption(code: "IDR", symbol: "Rp", name: "Indonesian Rupiah"),
+        CurrencyOption(code: "PHP", symbol: "₱", name: "Philippine Peso"),
+        CurrencyOption(code: "PLN", symbol: "zł", name: "Polish Zloty"),
+        CurrencyOption(code: "SEK", symbol: "kr", name: "Swedish Krona"),
+        CurrencyOption(code: "NOK", symbol: "kr", name: "Norwegian Krone"),
+        CurrencyOption(code: "DKK", symbol: "kr", name: "Danish Krone"),
+        CurrencyOption(code: "NZD", symbol: "NZ$", name: "New Zealand Dollar"),
+        CurrencyOption(code: "TWD", symbol: "NT$", name: "Taiwan Dollar"),
+        CurrencyOption(code: "TRY", symbol: "₺", name: "Turkish Lira"),
+        CurrencyOption(code: "SAR", symbol: "﷼", name: "Saudi Riyal"),
+        CurrencyOption(code: "ILS", symbol: "₪", name: "Israeli Shekel"),
+        CurrencyOption(code: "EGP", symbol: "E£", name: "Egyptian Pound"),
+        CurrencyOption(code: "PKR", symbol: "₨", name: "Pakistani Rupee"),
+        CurrencyOption(code: "BDT", symbol: "৳", name: "Bangladeshi Taka"),
+        CurrencyOption(code: "VND", symbol: "₫", name: "Vietnamese Dong"),
+    ]
+    
+    static func symbol(for code: String?) -> String {
+        let c = code ?? "USD"
+        return all.first(where: { $0.code == c })?.symbol ?? "$"
     }
 }
 
@@ -379,6 +447,9 @@ struct WishItem: Codable, Identifiable {
     var name: String
     var notes: String?
     var price: Double?
+    /// ISO currency code (e.g. USD, EUR). Optional; default display uses USD.
+    var currencyCode: String?
+    /// Desire level 1–5. Stored in API as `rating` for compatibility.
     var rating: Int?
     var imageUrl: String?
     let createdAt: String?
@@ -388,9 +459,25 @@ struct WishItem: Codable, Identifiable {
         case id, name, notes, price, rating
         case groupId = "group_id"
         case createdBy = "created_by"
+        case currencyCode = "currency_code"
         case imageUrl = "image_url"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+    }
+    
+    /// Desire level 1–5 (how much user wants it). Clamped; default 3.
+    var desireLevel: Int {
+        get { (rating ?? 3).clamped(to: 1...5) }
+        set { rating = newValue.clamped(to: 1...5) }
+    }
+    
+    /// Currency symbol for display (e.g. $, €).
+    var currencySymbol: String { CurrencyOption.symbol(for: currencyCode) }
+}
+
+private extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        min(max(self, range.lowerBound), range.upperBound)
     }
 }
 

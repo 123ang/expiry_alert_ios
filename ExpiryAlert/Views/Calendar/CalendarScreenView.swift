@@ -11,6 +11,16 @@ struct CalendarScreenView: View {
     
     private var theme: AppTheme { themeManager.currentTheme }
     
+    private var appLocale: Locale {
+        switch localizationManager.currentLanguage {
+        case .en: return Locale(identifier: "en_US")
+        case .ja: return Locale(identifier: "ja_JP")
+        case .ms: return Locale(identifier: "ms_MY")
+        case .th: return Locale(identifier: "th_TH")
+        case .zh: return Locale(identifier: "zh_Hans")
+        }
+    }
+    
     private var selectedDateString: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
@@ -45,124 +55,162 @@ struct CalendarScreenView: View {
             Color(hex: theme.backgroundColor).ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // Header
-                Text(localizationManager.t("nav.calendar"))
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(Color(hex: theme.textColor))
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color(hex: theme.cardBackground))
-                
-                // Calendar
-                VStack(spacing: 12) {
-                    // Month Navigation
-                    HStack {
-                        Button(action: { changeMonth(-1) }) {
-                            Image(systemName: "chevron.left")
-                                .foregroundColor(Color(hex: theme.textColor))
-                        }
-                        Spacer()
-                        Text("\(months[Calendar.current.component(.month, from: currentMonth) - 1]) \(Calendar.current.component(.year, from: currentMonth))")
-                            .font(.headline)
-                            .foregroundColor(Color(hex: theme.textColor))
-                        Spacer()
-                        Button(action: { changeMonth(1) }) {
-                            Image(systemName: "chevron.right")
-                                .foregroundColor(Color(hex: theme.textColor))
-                        }
-                    }
-                    .padding(.horizontal)
-                    
-                    // Week Days Header
-                    HStack {
-                        ForEach(weekDays, id: \.self) { day in
-                            Text(day)
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(Color(hex: theme.textSecondary))
-                                .frame(maxWidth: .infinity)
-                        }
-                    }
-                    
-                    // Calendar Grid
-                    let days = getDaysInMonth()
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 4) {
-                        ForEach(days, id: \.date) { dayInfo in
-                            DayCell(
-                                date: dayInfo.date,
-                                isCurrentMonth: dayInfo.isCurrentMonth,
-                                isSelected: Calendar.current.isDate(dayInfo.date, inSameDayAs: selectedDate),
-                                hasItems: hasItemsOnDate(dayInfo.date),
-                                theme: theme
-                            )
-                            .onTapGesture {
-                                selectedDate = dayInfo.date
-                            }
-                        }
-                    }
+                // Header – blends with page (same as Settings)
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    Text(localizationManager.t("nav.calendar"))
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(Color(hex: theme.textColor))
+                    Spacer(minLength: 0)
                 }
-                .padding()
-                .background(Color(hex: theme.cardBackground))
-                .cornerRadius(16)
-                .padding(.horizontal)
+                .padding(.top, 10)
+                .padding(.bottom, 8)
+                .padding(.horizontal, 16)
+                .background(Color(hex: theme.backgroundColor))
+                .overlay(
+                    Rectangle()
+                        .fill(Color(hex: theme.borderColor).opacity(0.35))
+                        .frame(height: 0.5),
+                    alignment: .bottom
+                )
+                .padding(.top, 44)
                 
-                // Items for selected date
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(selectedDate.formatted(date: .long, time: .omitted))
-                                .font(.headline)
-                                .foregroundColor(Color(hex: theme.textColor))
-                            Text("\(itemsForSelectedDate.count) \(localizationManager.t("calendar.items"))")
-                                .font(.subheadline)
-                                .foregroundColor(Color(hex: theme.textSecondary))
-                        }
-                        Spacer()
-                        Button(action: { showAddItem = true }) {
-                            Image(systemName: "plus")
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                                .padding(8)
-                                .background(Color(hex: theme.primaryColor))
-                                .clipShape(Circle())
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 12)
-                    
-                    if itemsForSelectedDate.isEmpty {
-                        VStack(spacing: 12) {
-                            Spacer()
-                            Text("📅")
-                                .font(.system(size: 48))
-                            Text(localizationManager.t("calendar.noItems"))
-                                .foregroundColor(Color(hex: theme.textSecondary))
-                            Spacer()
-                        }
-                        .frame(maxWidth: .infinity)
-                    } else {
-                        ScrollView {
-                            VStack(spacing: 0) {
-                                ForEach(itemsForSelectedDate) { item in
-                                    NavigationLink(destination: ItemDetailView(itemId: item.id)) {
-                                        FoodItemRow(item: item, theme: theme, localizationManager: localizationManager)
-                                            .padding(.horizontal)
-                                            .padding(.vertical, 8)
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        // Calendar card – more inset, less squeezed
+                        VStack(spacing: 16) {
+                            // Month Navigation
+                            HStack {
+                                Button(action: { changeMonth(-1) }) {
+                                    Image(systemName: "chevron.left")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(Color(hex: theme.textColor))
+                                        .frame(width: 44, height: 44)
+                                        .contentShape(Rectangle())
+                                }
+                                Spacer()
+                                Text("\(months[Calendar.current.component(.month, from: currentMonth) - 1]) \(Calendar.current.component(.year, from: currentMonth))")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundColor(Color(hex: theme.textColor))
+                                Spacer()
+                                Button(action: { changeMonth(1) }) {
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundColor(Color(hex: theme.textColor))
+                                        .frame(width: 44, height: 44)
+                                        .contentShape(Rectangle())
+                                }
+                            }
+                            .padding(.horizontal, 4)
+                            
+                            // Week Days Header – more spacing
+                            HStack(spacing: 0) {
+                                ForEach(weekDays, id: \.self) { day in
+                                    Text(day)
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundColor(Color(hex: theme.textSecondary))
+                                        .frame(maxWidth: .infinity)
+                                }
+                            }
+                            .padding(.bottom, 6)
+                            
+                            // Calendar Grid – increased spacing so dates aren’t squeezed
+                            let days = getDaysInMonth()
+                            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 8) {
+                                ForEach(days, id: \.date) { dayInfo in
+                                    DayCell(
+                                        date: dayInfo.date,
+                                        isCurrentMonth: dayInfo.isCurrentMonth,
+                                        isSelected: Calendar.current.isDate(dayInfo.date, inSameDayAs: selectedDate),
+                                        hasItems: hasItemsOnDate(dayInfo.date),
+                                        theme: theme
+                                    )
+                                    .onTapGesture {
+                                        selectedDate = dayInfo.date
                                     }
-                                    Divider()
                                 }
                             }
                         }
+                        .padding(20)
+                        .background(Color(hex: theme.cardBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(Color(hex: theme.borderColor).opacity(0.5), lineWidth: 1)
+                        )
+                        .shadow(color: Color(hex: theme.shadowColor).opacity(0.2), radius: 6, x: 0, y: 2)
+                        
+                        // Selected date + items section
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(alignment: .top) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(localizedLongDateString(from: selectedDate))
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .foregroundColor(Color(hex: theme.textColor))
+                                    Text("\(itemsForSelectedDate.count) \(localizationManager.t("calendar.items"))")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(Color(hex: theme.textSecondary))
+                                }
+                                Spacer()
+                                Button(action: { showAddItem = true }) {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .frame(width: 40, height: 40)
+                                        .background(Color(hex: theme.primaryColor))
+                                        .clipShape(Circle())
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                            
+                            if itemsForSelectedDate.isEmpty {
+                                VStack(spacing: 14) {
+                                    Text("📅")
+                                        .font(.system(size: 40))
+                                    Text(localizationManager.t("calendar.noItems"))
+                                        .font(.system(size: 15))
+                                        .foregroundColor(Color(hex: theme.textSecondary))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 32)
+                            } else {
+                                VStack(spacing: 0) {
+                                    ForEach(itemsForSelectedDate) { item in
+                                        NavigationLink(destination: ItemDetailView(itemId: item.id)) {
+                                            FoodItemRow(item: item, theme: theme, localizationManager: localizationManager)
+                                                .padding(.vertical, 10)
+                                        }
+                                        if item.id != itemsForSelectedDate.last?.id {
+                                            Divider()
+                                                .padding(.leading, 56)
+                                        }
+                                    }
+                                }
+                                .padding(12)
+                                .background(Color(hex: theme.cardBackground))
+                                .clipShape(RoundedRectangle(cornerRadius: theme.borderRadius))
+                            }
+                        }
+                        
+                        Spacer().frame(height: 24)
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
                 }
-                .background(Color(hex: theme.cardBackground))
             }
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showAddItem) {
             AddItemView(prefilledDate: selectedDate)
         }
+    }
+    
+    private func localizedLongDateString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = appLocale
+        formatter.dateStyle = .long
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
     }
     
     // MARK: - Helpers
@@ -242,7 +290,7 @@ struct DayCell: View {
     var body: some View {
         VStack(spacing: 2) {
             Text("\(Calendar.current.component(.day, from: date))")
-                .font(.system(size: 14, weight: isSelected ? .bold : .regular))
+                .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
                 .foregroundColor(
                     isSelected ? .white :
                     !isCurrentMonth ? Color(hex: theme.textSecondary).opacity(0.4) :
@@ -255,7 +303,7 @@ struct DayCell: View {
                     .frame(width: 4, height: 4)
             }
         }
-        .frame(height: 36)
+        .frame(height: 40)
         .frame(maxWidth: .infinity)
         .background(
             isSelected

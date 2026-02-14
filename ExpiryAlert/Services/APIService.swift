@@ -656,13 +656,23 @@ extension APIService {
         return response.user
     }
     
-    func updateProfile(fullName: String?, languagePreference: String?) async throws -> User {
+    func updateProfile(fullName: String?, languagePreference: String?, email: String?) async throws -> User {
         var body: [String: Any] = [:]
         if let name = fullName { body["full_name"] = name }
         if let lang = languagePreference { body["language_preference"] = lang }
+        if let e = email { body["email"] = e }
         struct Response: Codable { let user: User }
         let response: Response = try await request(endpoint: "/users/me", method: "PATCH", body: body)
         return response.user
+    }
+    
+    /// Change password. Backend: POST /auth/change-password with current_password, new_password.
+    func changePassword(currentPassword: String, newPassword: String) async throws {
+        let body: [String: Any] = [
+            "current_password": currentPassword,
+            "new_password": newPassword
+        ]
+        try await requestVoid(endpoint: "/auth/change-password", method: "POST", body: body)
     }
     
     func getUserSettings() async throws -> UserSettings {

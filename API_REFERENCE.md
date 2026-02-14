@@ -130,8 +130,8 @@ Access token expires in ~15 minutes; use refresh token to get a new access token
 |--------|----------|----------|
 | GET | `https://api.expiry-alert.link/api/shopping-items?group_id=...&include_purchased=false` | List shopping items. Returns `{ items }`. |
 | GET | `https://api.expiry-alert.link/api/shopping-items/:id` | Get one shopping item. Returns `{ item }`. |
-| POST | `https://api.expiry-alert.link/api/shopping-items` | Create. Body: `{ group_id, name, quantity?, unit?, category_id?, notes? }`. Returns `{ item }`. |
-| PATCH | `https://api.expiry-alert.link/api/shopping-items/:id` | Update. Body: `{ name?, quantity?, unit?, category_id?, is_purchased?, notes? }`. Returns `{ item }`. |
+| POST | `https://api.expiry-alert.link/api/shopping-items` | Create. Body: `{ group_id, name, quantity?, unit?, category_id?, where_to_buy?, notes? }`. Returns `{ item }` (item must include `where_to_buy`). |
+| PATCH | `https://api.expiry-alert.link/api/shopping-items/:id` | Update. Body: `{ name?, quantity?, unit?, category_id?, where_to_buy?, is_purchased?, notes? }`. Returns `{ item }`. |
 | DELETE | `https://api.expiry-alert.link/api/shopping-items/:id` | Delete. Returns 204. |
 | POST | `https://api.expiry-alert.link/api/shopping-items/:id/toggle` | Toggle purchase status. Returns `{ item }`. |
 | POST | `https://api.expiry-alert.link/api/shopping-items/clear-purchased` | Clear purchased items. Body: `{ group_id }`. Returns `{ deleted_count }`. |

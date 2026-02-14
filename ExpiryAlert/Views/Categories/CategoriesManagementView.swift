@@ -11,84 +11,136 @@ struct CategoriesManagementView: View {
     @State private var newIcon = "🍽️"
     @State private var showDeleteAlert = false
     @State private var categoryToDelete: Category?
-    @State private var showThemeSetup = false
+    @State private var showDeleteError = false
+    @State private var deleteErrorMessage: String?
+    @State private var searchText = ""
+    /// Section keys that are expanded. Empty set = all expanded (we fill on appear).
+    @State private var expandedSections: Set<String> = []
     
     private var theme: AppTheme { themeManager.currentTheme }
     
-    /// Groups categories by section (from DB) for display; preserves sort order.
-    private var categoriesBySection: [(section: String, items: [Category])] {
-        var result: [(String, [Category])] = []
-        var currentSection = ""
-        var currentItems: [Category] = []
-        for c in dataStore.categories {
-            let sec = c.section ?? ""
-            if sec != currentSection {
-                if !currentItems.isEmpty { result.append((currentSection, currentItems)) }
-                currentSection = sec
-                currentItems = [c]
-            } else {
-                currentItems.append(c)
-            }
+    /// Whether this category is beverages/drinks (split out from Food).
+    private func isBeverageCategory(_ category: Category) -> Bool {
+        let key = (category.translationKey ?? "").lowercased()
+        let name = category.name.lowercased()
+        return key.contains("drink") || name.contains("beverage") || name.contains("drink")
+    }
+    
+    /// Normalizes section: empty/Other/Food & Drinks split into "Food" vs "Beverages"; rest unchanged.
+    private func normalizedSection(for category: Category) -> String {
+        let sec = category.section ?? ""
+        let t = sec.trimmingCharacters(in: .whitespaces).lowercased()
+        let isCustomizationGroup = t.isEmpty || t == "other" || t == "food & drinks" || t == "food and drinks"
+        if isCustomizationGroup {
+            return isBeverageCategory(category) ? "Beverages" : "Food"
         }
-        if !currentItems.isEmpty { result.append((currentSection, currentItems)) }
-        return result
+        return sec.isEmpty ? "Other" : sec
+    }
+    
+    /// True when edit/remove should be shown: backend sends is_customization == true, or (for backward compatibility) when field is missing and category is non-default.
+    private func isCustomizationCategory(_ category: Category) -> Bool {
+        if let custom = category.isCustomization { return custom }
+        return category.isDefault != true
+    }
+    
+    /// Section keys for the split Food/Beverages, shown first.
+    private let customizationSectionKeys = ["Food", "Beverages"]
+    /// Section for user-added categories; always first, count 0 if empty.
+    private let customizeSectionKey = "Customize"
+    
+    /// Display categories with duplicate names removed (first occurrence kept).
+    private var displayCategoriesDeduplicated: [Category] {
+        localizationManager.deduplicatedCategories(dataStore.displayCategories)
+    }
+    
+    /// User-added (customization) categories only (excluding debug).
+    private var customizeCategories: [Category] {
+        displayCategoriesDeduplicated.filter { isCustomizationCategory($0) }
+    }
+    
+    /// Groups categories by section; Customize first, then Food/Beverages, then rest.
+    private var categoriesBySection: [(section: String, items: [Category])] {
+        var map: [String: [Category]] = [:]
+        for c in displayCategoriesDeduplicated where !isCustomizationCategory(c) {
+            let key = normalizedSection(for: c)
+            map[key, default: []].append(c)
+        }
+        var order: [String] = []
+        for c in displayCategoriesDeduplicated where !isCustomizationCategory(c) {
+            let key = normalizedSection(for: c)
+            if !order.contains(key) { order.append(key) }
+        }
+        let head = customizationSectionKeys.filter { order.contains($0) }
+        let tail = order.filter { !customizationSectionKeys.contains($0) }
+        let reordered = head + tail
+        let otherSections = reordered.map { (section: $0, items: map[$0] ?? []) }
+        return [(section: customizeSectionKey, items: customizeCategories)] + otherSections
+    }
+    
+    /// Sections with items filtered by search; Customize always shown (count 0 if no matches).
+    private var filteredSections: [(section: String, items: [Category])] {
+        let term = searchText.trimmingCharacters(in: .whitespaces).lowercased()
+        let base = categoriesBySection
+        if term.isEmpty { return base }
+        return base.map { pair in
+            let filtered = pair.items.filter {
+                localizationManager.getCategoryName($0).lowercased().contains(term)
+            }
+            return (pair.section, filtered)
+        }
     }
     
     var body: some View {
         ZStack {
             Color(hex: theme.backgroundColor).ignoresSafeArea()
             
-            List {
-                if dataStore.categories.isEmpty, let err = dataStore.error {
-                    Section {
-                        VStack(spacing: 12) {
-                            Image(systemName: "exclamationmark.triangle")
-                                .font(.title)
-                                .foregroundColor(Color(hex: theme.warningColor))
-                            Text("Couldn't load categories")
-                                .font(.headline)
-                                .foregroundColor(Color(hex: theme.textColor))
-                            Text(err)
-                                .font(.caption)
+            VStack(spacing: 0) {
+                searchBar
+                List {
+                    errorSection
+                    if !searchText.isEmpty && filteredSections.isEmpty {
+                        Section {
+                            Text("No categories match \"\(searchText)\"")
+                                .font(.subheadline)
                                 .foregroundColor(Color(hex: theme.textSecondary))
-                                .multilineTextAlignment(.center)
-                            Button("Retry") {
-                                dataStore.error = nil
-                                Task { await dataStore.refreshCategories() }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 20)
+                        }
+                        .listRowBackground(Color(hex: theme.cardBackground))
+                    }
+                    ForEach(Array(filteredSections.enumerated()), id: \.offset) { _, pair in
+                        DisclosureGroup(
+                            isExpanded: Binding(
+                                get: { expandedSections.contains(pair.section) },
+                                set: { expanded in
+                                    if expanded {
+                                        expandedSections.insert(pair.section)
+                                    } else {
+                                        expandedSections.remove(pair.section)
+                                    }
+                                }
+                            ),
+                            content: {
+                                ForEach(pair.items) { category in
+                                    categoryRow(category)
+                                        .listRowBackground(Color(hex: theme.cardBackground))
+                                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                }
+                            },
+                            label: {
+                                sectionHeaderLabel(pair.section, count: pair.items.count)
                             }
-                            .foregroundColor(Color(hex: theme.primaryColor))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 24)
-                    }
-                    .listRowBackground(Color(hex: theme.cardBackground))
-                }
-                ForEach(Array(categoriesBySection.enumerated()), id: \.offset) { _, pair in
-                    Section(header: sectionHeader(pair.section)) {
-                        ForEach(pair.items) { category in
-                            categoryRow(category)
-                                .listRowBackground(Color(hex: theme.cardBackground))
-                        }
+                        )
+                        .listRowBackground(Color(hex: theme.backgroundColor))
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                     }
                 }
+                .listStyle(.plain)
             }
-            .listStyle(.plain)
         }
         .navigationTitle(localizationManager.t("categories.title"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button(action: { showThemeSetup = true }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "wand.and.stars")
-                            .font(.subheadline)
-                        Text("Quick Setup")
-                            .font(.subheadline)
-                    }
-                    .foregroundColor(Color(hex: theme.primaryColor))
-                }
-            }
-            
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: {
                     editingCategory = nil
@@ -103,59 +155,161 @@ struct CategoriesManagementView: View {
         .sheet(isPresented: $showAddSheet) {
             addEditSheet
         }
-        .onAppear { Task { await dataStore.refreshCategories() } }
+        .onAppear {
+            expandedSections = []
+            Task { await dataStore.refreshCategories() }
+        }
         .alert(localizationManager.t("action.delete"), isPresented: $showDeleteAlert) {
-            Button(localizationManager.t("common.cancel"), role: .cancel) {}
+            Button(localizationManager.t("common.cancel"), role: .cancel) {
+                categoryToDelete = nil
+            }
             Button(localizationManager.t("action.delete"), role: .destructive) {
-                if let cat = categoryToDelete {
-                    Task { try? await dataStore.deleteCategory(id: cat.id) }
+                guard let cat = categoryToDelete else { return }
+                Task {
+                    do {
+                        try await dataStore.deleteCategory(id: cat.id)
+                        categoryToDelete = nil
+                    } catch {
+                        deleteErrorMessage = error.localizedDescription
+                        showDeleteError = true
+                    }
                 }
             }
+        } message: {
+            Text(localizationManager.t("action.deleteCategoryConfirm"))
         }
-        .sheet(isPresented: $showThemeSetup) {
-            ThemeSetupModal()
-        }
-        .onChange(of: showThemeSetup) { _, isShowing in
-            if !isShowing { Task { await dataStore.refreshCategories() } }
+        .alert("Delete failed", isPresented: $showDeleteError) {
+            Button(localizationManager.t("common.ok"), role: .cancel) {
+                deleteErrorMessage = nil
+            }
+        } message: {
+            if let msg = deleteErrorMessage { Text(msg) }
         }
         .refreshable {
             await dataStore.refreshCategories()
         }
     }
     
-    @ViewBuilder
-    private func sectionHeader(_ section: String) -> some View {
-        if section.isEmpty {
-            EmptyView()
-        } else {
-            Text(section)
+    // MARK: - Search
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
                 .font(.subheadline)
-                .fontWeight(.semibold)
                 .foregroundColor(Color(hex: theme.textSecondary))
-        }
-    }
-    
-    private func categoryRow(_ category: Category) -> some View {
-        HStack(spacing: 12) {
-            Text(category.icon ?? "🍽️")
-                .font(.title2)
-                .frame(width: 44, height: 44)
-                .background(Color(hex: theme.primaryColor).opacity(0.1))
-                .clipShape(Circle())
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(localizationManager.getCategoryName(category))
-                    .foregroundColor(Color(hex: theme.textColor))
-                if category.isDefault == true {
-                    Text("Default")
-                        .font(.caption2)
+            TextField(localizationManager.t("categories.searchPlaceholder"), text: $searchText)
+                .font(.body)
+                .foregroundColor(Color(hex: theme.textColor))
+            if !searchText.isEmpty {
+                Button(action: { searchText = "" }) {
+                    Image(systemName: "xmark.circle.fill")
                         .foregroundColor(Color(hex: theme.textSecondary))
                 }
             }
-            
+        }
+        .padding(10)
+        .background(Color(hex: theme.cardBackground))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
+    
+    @ViewBuilder
+    private var errorSection: some View {
+        if displayCategoriesDeduplicated.isEmpty, let err = dataStore.error {
+            Section {
+                VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.title)
+                        .foregroundColor(Color(hex: theme.warningColor))
+                    Text(localizationManager.t("categories.loadError"))
+                        .font(.headline)
+                        .foregroundColor(Color(hex: theme.textColor))
+                    Text(err)
+                        .font(.caption)
+                        .foregroundColor(Color(hex: theme.textSecondary))
+                        .multilineTextAlignment(.center)
+                    Button(localizationManager.t("categories.retry")) {
+                        dataStore.error = nil
+                        Task { await dataStore.refreshCategories() }
+                    }
+                    .foregroundColor(Color(hex: theme.primaryColor))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+            }
+            .listRowBackground(Color(hex: theme.cardBackground))
+        }
+    }
+    
+    private func localizedSectionTitle(_ section: String) -> String {
+        if section == customizeSectionKey { return localizationManager.t("common.sectionCustomize") }
+        let key: String
+        switch section.trimmingCharacters(in: .whitespaces).lowercased() {
+        case "food": key = "section.food"
+        case "beverages": key = "section.beverages"
+        case "other": key = "section.other"
+        case "health": key = "section.health"
+        case "personal care": key = "section.personalCare"
+        case "home": key = "section.home"
+        case "documents": key = "section.documents"
+        case "pets": key = "section.pets"
+        case "others": key = "section.others"
+        default: return section
+        }
+        let translated = localizationManager.t(key)
+        return translated != key ? translated : section
+    }
+    
+    private func sectionHeaderLabel(_ section: String, count: Int) -> some View {
+        let displayName = localizedSectionTitle(section)
+        return HStack(spacing: 8) {
+            Text(displayName)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(Color(hex: theme.textSecondary))
+                .textCase(.uppercase)
+                .tracking(0.4)
+            Text("\(count)")
+                .font(.caption)
+                .foregroundColor(Color(hex: theme.textSecondary).opacity(0.8))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color(hex: theme.borderColor).opacity(0.5))
+                .cornerRadius(6)
             Spacer()
+        }
+        .padding(.vertical, 4)
+    }
+    
+    private func categoryRow(_ category: Category) -> some View {
+        HStack(spacing: 10) {
+            Button(action: { dataStore.toggleCategorySelection(id: category.id) }) {
+                Image(systemName: dataStore.isCategorySelected(id: category.id) ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 22))
+                    .foregroundColor(dataStore.isCategorySelected(id: category.id) ? Color(hex: theme.primaryColor) : Color(hex: theme.textSecondary).opacity(0.5))
+            }
+            .buttonStyle(PlainButtonStyle())
             
-            if category.isDefault != true {
+            Text(category.icon ?? "🍽️")
+                .font(.title3)
+                .frame(width: 36, height: 36)
+                .background(Color(hex: theme.primaryColor).opacity(0.12))
+                .clipShape(Circle())
+            
+            HStack(spacing: 6) {
+                Text(localizationManager.getCategoryName(category))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color(hex: theme.textColor))
+                    .lineLimit(1)
+            }
+            
+            Spacer(minLength: 8)
+            
+            if isCustomizationCategory(category) {
                 Button(action: {
                     editingCategory = category
                     newName = category.name
@@ -163,18 +317,22 @@ struct CategoriesManagementView: View {
                     showAddSheet = true
                 }) {
                     Image(systemName: "pencil")
+                        .font(.system(size: 14))
                         .foregroundColor(Color(hex: theme.primaryColor))
                 }
-                
+                .buttonStyle(PlainButtonStyle())
                 Button(action: {
                     categoryToDelete = category
                     showDeleteAlert = true
                 }) {
                     Image(systemName: "trash")
+                        .font(.system(size: 14))
                         .foregroundColor(Color(hex: theme.dangerColor))
                 }
+                .buttonStyle(PlainButtonStyle())
             }
         }
+        .padding(.vertical, 2)
     }
     
     private var addEditSheet: some View {
@@ -184,7 +342,7 @@ struct CategoriesManagementView: View {
                     .textFieldStyle(ThemedTextFieldStyle(theme: theme))
                 
                 VStack(alignment: .leading) {
-                    Text("Icon")
+                    Text(localizationManager.t("common.icon"))
                         .font(.subheadline)
                         .foregroundColor(Color(hex: theme.textSecondary))
                     

@@ -69,7 +69,7 @@ struct JoinGroupView: View {
                                     .disableAutocorrection(true)
                                     .foregroundColor(Color(hex: theme.textColor))
                                     .focused($codeFocused)
-                                    .onChange(of: inviteCode) { _ in
+                                    .onChange(of: inviteCode) { _, _ in
                                         // Reset verification when code changes
                                         verifiedGroupName = nil
                                         verificationError = nil
