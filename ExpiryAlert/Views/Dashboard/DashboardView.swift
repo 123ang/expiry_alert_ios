@@ -91,14 +91,10 @@ struct DashboardView: View {
     // MARK: - Logo + Title Header
     private var headerLogoSection: some View {
         HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color(hex: theme.primaryColor))
-                    .frame(width: 44, height: 44)
-                Image(systemName: "leaf.fill")
-                    .font(.title2)
-                    .foregroundColor(.white)
-            }
+            Image("AppLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 44, height: 44)
             Text(localizationManager.t("app.name"))
                 .font(.title)
                 .fontWeight(.bold)

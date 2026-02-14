@@ -32,11 +32,10 @@ struct SplashScreenView: View {
                 .ignoresSafeArea()
             
             VStack(spacing: 20) {
-                Image(systemName: "leaf.fill")
+                Image("AppLogo")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 100, height: 100)
-                    .foregroundColor(.white)
                 
                 Text(localizationManager.t("app.name"))
                     .font(.largeTitle)

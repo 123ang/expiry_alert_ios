@@ -27,18 +27,11 @@ struct LoginView: View {
                     Spacer().frame(height: 60)
                     
                     // Logo
-                    ZStack {
-                        Circle()
-                            .fill(Color(hex: theme.cardBackground))
-                            .frame(width: 120, height: 120)
-                            .shadow(radius: 10)
-                        
-                        Image(systemName: "leaf.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 60, height: 60)
-                            .foregroundColor(Color(hex: theme.primaryColor))
-                    }
+                    Image("AppLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 120, height: 120)
+                        .shadow(radius: 10)
                     
                     // Title
                     Text(localizationManager.t("app.name"))
