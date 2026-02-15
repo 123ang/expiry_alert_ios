@@ -31,8 +31,7 @@ struct AddWishlistItemModal: View {
                 Color(hex: theme.backgroundColor).ignoresSafeArea()
                 VStack(spacing: 20) {
                     FormField(label: localizationManager.t("addItem.itemName"), theme: theme) {
-                        TextField(localizationManager.t("addItem.itemNamePlaceholder"), text: $name)
-                            .textFieldStyle(ThemedTextFieldStyle(theme: theme))
+                        ThemedTextField(placeholder: localizationManager.t("addItem.itemNamePlaceholder"), text: $name, theme: theme)
                     }
                     FormField(label: localizationManager.t("wishList.price"), theme: theme) {
                         HStack(spacing: 12) {
@@ -74,9 +73,7 @@ struct AddWishlistItemModal: View {
                                         .stroke(Color(hex: theme.borderColor), lineWidth: 1)
                                 )
                             }
-                            TextField("0.00", text: $priceText)
-                                .keyboardType(.decimalPad)
-                                .textFieldStyle(ThemedTextFieldStyle(theme: theme))
+                            ThemedTextField(placeholder: "0.00", text: $priceText, theme: theme, keyboardType: .decimalPad)
                         }
                     }
                     FormField(label: localizationManager.t("wishList.desireLevel"), theme: theme) {
@@ -99,9 +96,14 @@ struct AddWishlistItemModal: View {
                                     .buttonStyle(PlainButtonStyle())
                                 }
                             }
-                            Text(localizationManager.t("wishList.desireLevelHint").replacingOccurrences(of: "%@", with: "\(desireLevel)"))
-                                .font(.caption)
-                                .foregroundColor(Color(hex: theme.textSecondary))
+                            HStack(spacing: 4) {
+                                Text(localizationManager.t("wishList.desireLevelHint").replacingOccurrences(of: "%@", with: "\(desireLevel)"))
+                                    .font(.caption)
+                                Image(systemName: "heart.fill")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(Color(red: 0.91, green: 0.22, blue: 0.39))
+                            }
+                            .foregroundColor(Color(hex: theme.textSecondary))
                         }
                         .padding(12)
                         .background(Color(hex: theme.cardBackground))

@@ -384,7 +384,10 @@ struct FoodListView: View {
                             UserDefaults.standard.set(wishlistFiltersCollapsed, forKey: Self.wishlistFiltersCollapsedKey)
                         }
                     } label: {
-                        HStack {
+                        HStack(spacing: 8) {
+                            Image(systemName: "heart.circle.fill")
+                                .font(.subheadline)
+                                .foregroundColor(Color(red: 0.91, green: 0.22, blue: 0.39))
                             Text(localizationManager.t("wishList.filterByDesireLevel"))
                                 .font(.subheadline)
                                 .fontWeight(.medium)
@@ -414,7 +417,7 @@ struct FoodListView: View {
                             }
                             .frame(maxWidth: .infinity)
                             ForEach([5, 4, 3, 2, 1], id: \.self) { level in
-                                filterChip(title: "\(level) 🔥", selected: wishlistRatingFilter == level) {
+                                desireLevelFilterChip(level: level, selected: wishlistRatingFilter == level) {
                                     wishlistRatingFilter = level
                                 }
                                 .frame(maxWidth: .infinity)
@@ -425,18 +428,22 @@ struct FoodListView: View {
                     }
                 }
                 .background(Color(hex: theme.cardBackground))
-                .cornerRadius(10)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color(hex: theme.borderColor).opacity(0.6), lineWidth: 1)
+                )
 
                 // ——— 2) Amount still needed (prominent card) ———
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "banknote")
-                            .font(.subheadline)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "banknote.circle.fill")
+                            .font(.body)
                             .foregroundColor(Color(hex: theme.primaryColor))
                         Text(localizationManager.t("wishList.amountNeeded"))
                             .font(.subheadline)
                             .fontWeight(.medium)
-                            .foregroundColor(Color(hex: theme.textSecondary))
+                            .foregroundColor(Color(hex: theme.placeholderColor))
                     }
                     Text("\(wishlistTotalCurrencySymbol)\(wishlistTotalAmount, specifier: "%.2f")")
                         .font(.title2)
@@ -447,16 +454,16 @@ struct FoodListView: View {
                         .foregroundColor(Color(hex: theme.textSecondary))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
+                .padding(18)
                 .background(Color(hex: theme.cardBackground))
+                .cornerRadius(12)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color(hex: theme.primaryColor).opacity(0.4), lineWidth: 1.5)
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color(hex: theme.primaryColor).opacity(0.35), lineWidth: 1.5)
                 )
-                .cornerRadius(10)
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 12)
+            .padding(.bottom, 16)
 
             List {
                 ForEach(filteredWishItems) { item in
@@ -491,11 +498,39 @@ struct FoodListView: View {
             Text(title)
                 .font(.subheadline)
                 .fontWeight(selected ? .semibold : .medium)
-                .foregroundColor(selected ? .white : Color(hex: theme.textSecondary))
+                .foregroundColor(selected ? .white : Color(hex: theme.placeholderColor))
                 .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(selected ? Color(hex: theme.primaryColor) : Color(hex: theme.cardBackground))
-                .cornerRadius(8)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity)
+                .background(selected ? Color(hex: theme.primaryColor) : Color(hex: theme.backgroundColor))
+                .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(selected ? Color.clear : Color(hex: theme.borderColor).opacity(0.7), lineWidth: 1)
+                )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private func desireLevelFilterChip(level: Int, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Text("\(level)")
+                    .font(.subheadline)
+                    .fontWeight(selected ? .semibold : .medium)
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 12))
+            }
+            .foregroundColor(selected ? .white : Color(hex: theme.placeholderColor))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .background(selected ? Color(hex: theme.primaryColor) : Color(hex: theme.backgroundColor))
+            .cornerRadius(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(selected ? Color.clear : Color(hex: theme.borderColor).opacity(0.7), lineWidth: 1)
+            )
         }
         .buttonStyle(PlainButtonStyle())
     }

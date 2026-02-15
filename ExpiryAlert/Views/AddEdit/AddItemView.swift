@@ -126,12 +126,10 @@ struct AddItemView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     FormField(label: localizationManager.t("addItem.itemName"), theme: theme) {
-                        TextField(localizationManager.t("addItem.itemNamePlaceholder"), text: $itemName)
-                            .textFieldStyle(ThemedTextFieldStyle(theme: theme))
+                        ThemedTextField(placeholder: localizationManager.t("addItem.itemNamePlaceholder"), text: $itemName, theme: theme)
                     }
                     FormField(label: localizationManager.t("addItem.quantity"), theme: theme) {
-                        TextField(localizationManager.t("addItem.quantityPlaceholder"), text: $quantity)
-                            .textFieldStyle(ThemedTextFieldStyle(theme: theme))
+                        ThemedTextField(placeholder: localizationManager.t("addItem.quantityPlaceholder"), text: $quantity, theme: theme, keyboardType: .numberPad)
                             .keyboardType(.numberPad)
                     }
                     FormField(label: localizationManager.t("form.photo"), theme: theme) {
@@ -147,6 +145,7 @@ struct AddItemView: View {
                         DatePicker("", selection: $expiryDate, displayedComponents: .date)
                             .datePickerStyle(.graphical)
                             .tint(Color(hex: theme.primaryColor))
+                            .foregroundColor(Color(hex: theme.textColor))
                             .padding()
                             .background(Color(hex: theme.cardBackground))
                             .cornerRadius(12)
@@ -210,11 +209,11 @@ struct AddItemView: View {
             .clipShape(Circle())
             Text(selectedCategoryId == nil ? localizationManager.t("common.tapToChoose") : selectedCategoryName)
                 .font(.subheadline)
-                .foregroundColor(selectedCategoryId == nil ? Color(hex: theme.textSecondary) : Color(hex: theme.textColor))
+                .foregroundColor(selectedCategoryId == nil ? Color(hex: theme.placeholderColor) : Color(hex: theme.textColor))
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.caption)
-                .foregroundColor(Color(hex: theme.textSecondary))
+                .foregroundColor(Color(hex: theme.placeholderColor))
         }
         .padding(12)
         .background(Color(hex: theme.cardBackground))
@@ -239,11 +238,11 @@ struct AddItemView: View {
                 .clipShape(Circle())
             Text(selectedLocationName.isEmpty ? localizationManager.t("common.tapToChoose") : selectedLocationName)
                 .font(.subheadline)
-                .foregroundColor(selectedLocationName.isEmpty ? Color(hex: theme.textSecondary) : Color(hex: theme.textColor))
+                .foregroundColor(selectedLocationName.isEmpty ? Color(hex: theme.placeholderColor) : Color(hex: theme.textColor))
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.caption)
-                .foregroundColor(Color(hex: theme.textSecondary))
+                .foregroundColor(Color(hex: theme.placeholderColor))
         }
         .padding(12)
         .background(Color(hex: theme.cardBackground))
@@ -427,16 +426,7 @@ struct CategoryPickerSheet: View {
             ZStack {
                 Color(hex: theme.backgroundColor).ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 12) {
-                    TextField(localizationManager.t("categories.searchPlaceholder"), text: $searchText)
-                        .font(.subheadline)
-                        .padding(10)
-                        .background(Color(hex: theme.cardBackground))
-                        .foregroundColor(Color(hex: theme.textColor))
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color(hex: theme.borderColor), lineWidth: 1)
-                        )
+                    ThemedTextField(placeholder: localizationManager.t("categories.searchPlaceholder"), text: $searchText, theme: theme)
                         .padding(.horizontal)
                     
                     if localizationManager.deduplicatedCategories(dataStore.visibleDisplayCategories).isEmpty {
@@ -653,16 +643,7 @@ struct LocationPickerSheet: View {
             ZStack {
                 Color(hex: theme.backgroundColor).ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 12) {
-                    TextField(localizationManager.t("locations.searchPlaceholder"), text: $searchText)
-                        .font(.subheadline)
-                        .padding(10)
-                        .background(Color(hex: theme.cardBackground))
-                        .foregroundColor(Color(hex: theme.textColor))
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color(hex: theme.borderColor), lineWidth: 1)
-                        )
+                    ThemedTextField(placeholder: localizationManager.t("locations.searchPlaceholder"), text: $searchText, theme: theme)
                         .padding(.horizontal)
                     
                     if dataStore.visibleDisplayLocations.isEmpty {

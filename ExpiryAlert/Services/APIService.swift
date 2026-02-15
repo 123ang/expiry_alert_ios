@@ -255,6 +255,14 @@ class APIService {
     }
     
     // MARK: - Image Upload
+    private func parseUploadErrorBody(_ data: Data) -> String? {
+        if let err = try? decoder.decode(ErrorResponse.self, from: data) { return err.error }
+        struct MessageOnly: Decodable { let message: String? }
+        if let msg = try? decoder.decode(MessageOnly.self, from: data), let m = msg.message, !m.isEmpty { return m }
+        if let raw = String(data: data, encoding: .utf8), !raw.isEmpty { return raw }
+        return nil
+    }
+    
     func uploadImage(imageData: Data, filename: String) async throws -> String {
         guard let url = URL(string: "\(APIConfig.baseURL)/upload/image") else {
             throw APIError.invalidURL
@@ -282,8 +290,22 @@ class APIService {
         
         let (data, response) = try await session.data(for: request)
         
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+        guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.serverError(0, "Upload failed")
+        }
+        
+        // 401: try refresh token and retry once
+        if httpResponse.statusCode == 401 {
+            let refreshed = try await refreshAccessToken()
+            if refreshed {
+                return try await uploadImage(imageData: imageData, filename: filename)
+            }
+            throw APIError.unauthorized
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            let message = parseUploadErrorBody(data) ?? "Upload failed"
+            throw APIError.serverError(httpResponse.statusCode, message)
         }
         
         struct UploadResponse: Codable {
@@ -666,13 +688,13 @@ extension APIService {
         return response.user
     }
     
-    /// Change password. Backend: POST /auth/change-password with current_password, new_password.
+    /// Change password. Backend: POST /users/me/change-password with current_password, new_password.
     func changePassword(currentPassword: String, newPassword: String) async throws {
         let body: [String: Any] = [
             "current_password": currentPassword,
             "new_password": newPassword
         ]
-        try await requestVoid(endpoint: "/auth/change-password", method: "POST", body: body)
+        try await requestVoid(endpoint: "/users/me/change-password", method: "POST", body: body)
     }
     
     func getUserSettings() async throws -> UserSettings {

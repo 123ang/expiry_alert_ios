@@ -41,34 +41,21 @@ struct LoginView: View {
                     // Form
                     VStack(spacing: 12) {
                         if isSignUp {
-                            TextField("Full Name", text: $fullName)
-                                .textFieldStyle(ThemedTextFieldStyle(theme: theme))
-                                .textContentType(.name)
-                                .autocapitalization(.words)
+                            ThemedTextField(placeholder: "Full Name", text: $fullName, theme: theme, textContentType: .name, autocapitalization: .words)
                         }
                         
-                        TextField("Email", text: $email)
-                            .textFieldStyle(ThemedTextFieldStyle(theme: theme))
-                            .textContentType(.emailAddress)
-                            .autocapitalization(.none)
-                            .keyboardType(.emailAddress)
+                        ThemedTextField(placeholder: "Email", text: $email, theme: theme, keyboardType: .emailAddress, textContentType: .emailAddress, autocapitalization: .never)
                         
                         // Password with eye toggle
                         HStack {
-                            ZStack {
-                                if showPassword {
-                                    TextField("Password", text: $password)
-                                        .textContentType(isSignUp ? .newPassword : .password)
-                                        .autocapitalization(.none)
-                                } else {
-                                    SecureField("Password", text: $password)
-                                        .textContentType(isSignUp ? .newPassword : .password)
-                                }
+                            if showPassword {
+                                ThemedTextField(placeholder: "Password", text: $password, theme: theme, textContentType: isSignUp ? .newPassword : .password, autocapitalization: .never)
+                            } else {
+                                ThemedSecureField(placeholder: "Password", text: $password, theme: theme, textContentType: isSignUp ? .newPassword : .password)
                             }
-                            .textFieldStyle(ThemedTextFieldStyle(theme: theme))
                             Button(action: { showPassword.toggle() }) {
                                 Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
-                                    .foregroundColor(Color(hex: theme.textSecondary))
+                                    .foregroundColor(Color(hex: theme.placeholderColor))
                                     .frame(width: 44, height: 44)
                             }
                         }
@@ -76,20 +63,14 @@ struct LoginView: View {
                         if isSignUp {
                             // Confirm Password with eye toggle
                             HStack {
-                                ZStack {
-                                    if showConfirmPassword {
-                                        TextField("Confirm Password", text: $confirmPassword)
-                                            .textContentType(.newPassword)
-                                            .autocapitalization(.none)
-                                    } else {
-                                        SecureField("Confirm Password", text: $confirmPassword)
-                                            .textContentType(.newPassword)
-                                    }
+                                if showConfirmPassword {
+                                    ThemedTextField(placeholder: "Confirm Password", text: $confirmPassword, theme: theme, textContentType: .newPassword, autocapitalization: .never)
+                                } else {
+                                    ThemedSecureField(placeholder: "Confirm Password", text: $confirmPassword, theme: theme, textContentType: .newPassword)
                                 }
-                                .textFieldStyle(ThemedTextFieldStyle(theme: theme))
                                 Button(action: { showConfirmPassword.toggle() }) {
                                     Image(systemName: showConfirmPassword ? "eye.slash.fill" : "eye.fill")
-                                        .foregroundColor(Color(hex: theme.textSecondary))
+                                        .foregroundColor(Color(hex: theme.placeholderColor))
                                         .frame(width: 44, height: 44)
                                 }
                             }
@@ -197,5 +178,71 @@ struct ThemedTextFieldStyle: TextFieldStyle {
                     .stroke(Color(hex: theme.borderColor), lineWidth: 1)
             )
             .foregroundColor(Color(hex: theme.textColor))
+    }
+}
+
+// MARK: - Themed Text Field with visible placeholder (theme-based contrast)
+struct ThemedTextField: View {
+    let placeholder: String
+    @Binding var text: String
+    let theme: AppTheme
+    var keyboardType: UIKeyboardType = .default
+    var textContentType: UITextContentType?
+    var autocapitalization: TextInputAutocapitalization = .sentences
+    
+    var body: some View {
+        ZStack(alignment: .leading) {
+            if text.isEmpty {
+                Text(placeholder)
+                    .font(.body)
+                    .foregroundColor(Color(hex: theme.placeholderColor))
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 15)
+            }
+            TextField("", text: $text)
+                .font(.body)
+                .foregroundColor(Color(hex: theme.textColor))
+                .padding(15)
+                .keyboardType(keyboardType)
+                .textContentType(textContentType)
+                .textInputAutocapitalization(autocapitalization)
+        }
+        .background(Color(hex: theme.cardBackground))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Themed Secure Field with visible placeholder
+struct ThemedSecureField: View {
+    let placeholder: String
+    @Binding var text: String
+    let theme: AppTheme
+    var textContentType: UITextContentType?
+    
+    var body: some View {
+        ZStack(alignment: .leading) {
+            if text.isEmpty {
+                Text(placeholder)
+                    .font(.body)
+                    .foregroundColor(Color(hex: theme.placeholderColor))
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 15)
+            }
+            SecureField("", text: $text)
+                .font(.body)
+                .foregroundColor(Color(hex: theme.textColor))
+                .padding(15)
+                .textContentType(textContentType)
+        }
+        .background(Color(hex: theme.cardBackground))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+        )
     }
 }

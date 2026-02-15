@@ -50,13 +50,11 @@ struct AddShoppingItemModal: View {
                 Color(hex: theme.backgroundColor).ignoresSafeArea()
                 VStack(spacing: 20) {
                     FormField(label: localizationManager.t("addItem.itemName"), theme: theme) {
-                        TextField(localizationManager.t("addItem.itemNamePlaceholder"), text: $name)
-                            .textFieldStyle(ThemedTextFieldStyle(theme: theme))
+                        ThemedTextField(placeholder: localizationManager.t("addItem.itemNamePlaceholder"), text: $name, theme: theme)
                     }
                     FormField(label: localizationManager.t("list.whereToBuy"), theme: theme) {
                         VStack(alignment: .leading, spacing: 8) {
-                            TextField(localizationManager.t("list.whereToBuyPlaceholder"), text: $whereToBuy)
-                                .textFieldStyle(ThemedTextFieldStyle(theme: theme))
+                            ThemedTextField(placeholder: localizationManager.t("list.whereToBuyPlaceholder"), text: $whereToBuy, theme: theme)
                             if !filteredSuggestions.isEmpty {
                                 Text(localizationManager.t("list.whereToBuySuggestions"))
                                     .font(.caption)
@@ -85,11 +83,11 @@ struct AddShoppingItemModal: View {
                         Button(action: { showCategoryPicker = true }, label: {
                             HStack {
                                 Text(selectedCategoryName)
-                                    .foregroundColor(selectedCategoryId == nil ? Color(hex: theme.textSecondary) : Color(hex: theme.textColor))
+                                    .foregroundColor(selectedCategoryId == nil ? Color(hex: theme.placeholderColor) : Color(hex: theme.textColor))
                                 Spacer()
                                 Image(systemName: "chevron.right")
                                     .font(.caption)
-                                    .foregroundColor(Color(hex: theme.textSecondary))
+                                    .foregroundColor(Color(hex: theme.placeholderColor))
                             }
                             .padding(12)
                             .background(Color(hex: theme.cardBackground))

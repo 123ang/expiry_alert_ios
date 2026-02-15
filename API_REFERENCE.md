@@ -45,6 +45,7 @@ Access token expires in ~15 minutes; use refresh token to get a new access token
 |--------|----------|----------|
 | GET | `https://api.expiry-alert.link/api/users/me` | Get current user profile. Returns `{ user }`. |
 | PATCH | `https://api.expiry-alert.link/api/users/me` | Update profile. Body: `{ full_name?, language_preference?, ... }`. Returns `{ message, user }`. |
+| POST | `https://api.expiry-alert.link/api/users/me/change-password` | Change password. Body: `{ current_password, new_password }`. Returns `{ message }`. |
 | GET | `https://api.expiry-alert.link/api/users/me/settings` | Get user settings. Returns `{ settings }`. |
 | PATCH | `https://api.expiry-alert.link/api/users/me/settings` | Update settings. Body: e.g. `{ theme?, notification_time?, expiring_soon_days?, expiring_today_alerts?, expired_alerts? }`. Returns `{ message, settings }`. |
 

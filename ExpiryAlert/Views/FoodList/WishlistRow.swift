@@ -24,11 +24,11 @@ struct WishlistRow: View {
                         .font(.subheadline)
                         .foregroundColor(Color(hex: theme.textSecondary))
                 }
-                HStack(spacing: 3) {
+                HStack(spacing: 4) {
                     ForEach(1...5, id: \.self) { level in
-                        Image(systemName: level <= item.desireLevel ? "flame.fill" : "flame")
-                            .font(.caption)
-                            .foregroundColor(level <= item.desireLevel ? Color(hex: theme.warningColor) : Color(hex: theme.textSecondary).opacity(0.4))
+                        Image(systemName: level <= item.desireLevel ? "heart.fill" : "heart")
+                            .font(.system(size: 12))
+                            .foregroundColor(level <= item.desireLevel ? Color(red: 0.91, green: 0.22, blue: 0.39) : Color(hex: theme.textSecondary).opacity(0.35))
                     }
                 }
             }

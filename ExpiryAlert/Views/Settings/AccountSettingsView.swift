@@ -54,13 +54,9 @@ struct AccountSettingsView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(localizationManager.t("account.email"))
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(Color(hex: theme.textSecondary))
+                            .foregroundColor(Color(hex: theme.placeholderColor))
                             .textCase(.uppercase)
-                        TextField(localizationManager.t("account.email"), text: $email)
-                            .textFieldStyle(ThemedTextFieldStyle(theme: theme))
-                            .textContentType(.emailAddress)
-                            .autocapitalization(.none)
-                            .keyboardType(.emailAddress)
+                        ThemedTextField(placeholder: localizationManager.t("account.email"), text: $email, theme: theme, keyboardType: .emailAddress, textContentType: .emailAddress, autocapitalization: .never)
                         Button(action: saveEmail) {
                             HStack {
                                 if isSavingEmail {
@@ -83,17 +79,11 @@ struct AccountSettingsView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(localizationManager.t("account.changePasswordSection"))
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(Color(hex: theme.textSecondary))
+                            .foregroundColor(Color(hex: theme.placeholderColor))
                             .textCase(.uppercase)
-                        SecureField(localizationManager.t("account.currentPassword"), text: $currentPassword)
-                            .textFieldStyle(ThemedTextFieldStyle(theme: theme))
-                            .textContentType(.password)
-                        SecureField(localizationManager.t("account.newPassword"), text: $newPassword)
-                            .textFieldStyle(ThemedTextFieldStyle(theme: theme))
-                            .textContentType(.newPassword)
-                        SecureField(localizationManager.t("account.confirmNewPassword"), text: $confirmPassword)
-                            .textFieldStyle(ThemedTextFieldStyle(theme: theme))
-                            .textContentType(.newPassword)
+                        ThemedSecureField(placeholder: localizationManager.t("account.currentPassword"), text: $currentPassword, theme: theme, textContentType: .password)
+                        ThemedSecureField(placeholder: localizationManager.t("account.newPassword"), text: $newPassword, theme: theme, textContentType: .newPassword)
+                        ThemedSecureField(placeholder: localizationManager.t("account.confirmNewPassword"), text: $confirmPassword, theme: theme, textContentType: .newPassword)
                         Button(action: changePassword) {
                             HStack {
                                 if isChangingPassword {

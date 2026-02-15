@@ -29,6 +29,14 @@ struct DashboardView: View {
         case byLocation
     }
     
+    private func homeFilterModeLabel(_ mode: HomeFilterMode) -> String {
+        switch mode {
+        case .all: return localizationManager.t("home.filterAll")
+        case .byCategory: return localizationManager.t("home.filterByCategory")
+        case .byLocation: return localizationManager.t("home.filterByLocation")
+        }
+    }
+    
     private var filteredFoodItems: [FoodItem] {
         let items = dataStore.activeFoodItems
         switch homeFilterMode {
@@ -298,7 +306,7 @@ struct DashboardView: View {
                     .foregroundColor(Color(hex: theme.textSecondary))
             }
             
-            // Filter: All | By Category | By Location
+            // Filter: All | By Category | By Location (custom segments for clear selected state)
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     Image(systemName: "line.3.horizontal.decrease.circle")
@@ -307,14 +315,33 @@ struct DashboardView: View {
                     Text(localizationManager.t("home.filter"))
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(Color(hex: theme.textSecondary))
+                        .foregroundColor(Color(hex: theme.placeholderColor))
                 }
-                Picker("", selection: $homeFilterMode) {
-                    Text(localizationManager.t("home.filterAll")).tag(HomeFilterMode.all)
-                    Text(localizationManager.t("home.filterByCategory")).tag(HomeFilterMode.byCategory)
-                    Text(localizationManager.t("home.filterByLocation")).tag(HomeFilterMode.byLocation)
+                HStack(spacing: 0) {
+                    ForEach(HomeFilterMode.allCases, id: \.self) { mode in
+                        Button(action: { homeFilterMode = mode }) {
+                            Text(homeFilterModeLabel(mode))
+                                .font(.subheadline)
+                                .fontWeight(homeFilterMode == mode ? .semibold : .medium)
+                                .foregroundColor(homeFilterMode == mode ? .white : Color(hex: theme.textSecondary))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(homeFilterMode == mode ? Color(hex: theme.primaryColor) : Color(hex: theme.cardBackground))
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        if mode != HomeFilterMode.allCases.last {
+                            Rectangle()
+                                .fill(Color(hex: theme.borderColor).opacity(0.5))
+                                .frame(width: 1)
+                        }
+                    }
                 }
-                .pickerStyle(.segmented)
+                .background(Color(hex: theme.cardBackground))
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color(hex: theme.borderColor).opacity(0.6), lineWidth: 1)
+                )
                 
                 if homeFilterMode == .byCategory {
                     categoryFilterPicker

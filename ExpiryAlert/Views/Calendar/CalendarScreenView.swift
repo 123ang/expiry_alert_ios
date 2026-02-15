@@ -108,7 +108,7 @@ struct CalendarScreenView: View {
                                 ForEach(weekDays, id: \.self) { day in
                                     Text(day)
                                         .font(.system(size: 11, weight: .medium))
-                                        .foregroundColor(Color(hex: theme.textSecondary))
+                                        .foregroundColor(Color(hex: theme.placeholderColor))
                                         .frame(maxWidth: .infinity)
                                 }
                             }
