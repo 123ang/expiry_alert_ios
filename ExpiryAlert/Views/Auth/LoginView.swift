@@ -15,6 +15,7 @@ struct LoginView: View {
     @State private var isSubmitting = false
     @State private var showPassword = false
     @State private var showConfirmPassword = false
+    @State private var showLanguagePicker = false
     
     private var theme: AppTheme { themeManager.currentTheme }
     
@@ -24,7 +25,28 @@ struct LoginView: View {
             
             ScrollView {
                 VStack(spacing: 24) {
-                    Spacer().frame(height: 60)
+                    Spacer().frame(height: 40)
+                    
+                    // Language selector – choose language before logging in
+                    Button(action: { showLanguagePicker = true }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "globe")
+                                .font(.subheadline)
+                            Text(localizationManager.currentLanguage.displayName)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Image(systemName: "chevron.down")
+                                .font(.caption2)
+                        }
+                        .foregroundColor(Color(hex: theme.primaryColor))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color(hex: theme.primaryColor).opacity(0.12))
+                        .cornerRadius(8)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    
+                    Spacer().frame(height: 20)
                     
                     // Logo
                     Image("AppLogo")
@@ -38,24 +60,26 @@ struct LoginView: View {
                         .font(.system(size: 28, weight: .bold))
                         .foregroundColor(Color(hex: theme.textColor))
                     
-                    // Form
+                    // Form – use contrasting colors: white text for dark themes (Black, Dark Brown, Dark Gold), dark for others
+                    let inputTextColor = theme.calendarTextColor
+                    let inputPlaceholderColor = theme.subtitleOnCard
                     VStack(spacing: 12) {
                         if isSignUp {
-                            ThemedTextField(placeholder: "Full Name", text: $fullName, theme: theme, textContentType: .name, autocapitalization: .words)
+                            ThemedTextField(placeholder: localizationManager.t("auth.fullName"), text: $fullName, theme: theme, textContentType: .name, autocapitalization: .words, textColorOverride: inputTextColor, placeholderColorOverride: inputPlaceholderColor)
                         }
                         
-                        ThemedTextField(placeholder: "Email", text: $email, theme: theme, keyboardType: .emailAddress, textContentType: .emailAddress, autocapitalization: .never)
+                        ThemedTextField(placeholder: localizationManager.t("auth.email"), text: $email, theme: theme, keyboardType: .emailAddress, textContentType: .emailAddress, autocapitalization: .never, textColorOverride: inputTextColor, placeholderColorOverride: inputPlaceholderColor)
                         
                         // Password with eye toggle
                         HStack {
                             if showPassword {
-                                ThemedTextField(placeholder: "Password", text: $password, theme: theme, textContentType: isSignUp ? .newPassword : .password, autocapitalization: .never)
+                                ThemedTextField(placeholder: localizationManager.t("auth.password"), text: $password, theme: theme, textContentType: isSignUp ? .newPassword : .password, autocapitalization: .never, textColorOverride: inputTextColor, placeholderColorOverride: inputPlaceholderColor)
                             } else {
-                                ThemedSecureField(placeholder: "Password", text: $password, theme: theme, textContentType: isSignUp ? .newPassword : .password)
+                                ThemedSecureField(placeholder: localizationManager.t("auth.password"), text: $password, theme: theme, textContentType: isSignUp ? .newPassword : .password, textColorOverride: inputTextColor, placeholderColorOverride: inputPlaceholderColor)
                             }
                             Button(action: { showPassword.toggle() }) {
                                 Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
-                                    .foregroundColor(Color(hex: theme.placeholderColor))
+                                    .foregroundColor(Color(hex: inputPlaceholderColor))
                                     .frame(width: 44, height: 44)
                             }
                         }
@@ -64,13 +88,13 @@ struct LoginView: View {
                             // Confirm Password with eye toggle
                             HStack {
                                 if showConfirmPassword {
-                                    ThemedTextField(placeholder: "Confirm Password", text: $confirmPassword, theme: theme, textContentType: .newPassword, autocapitalization: .never)
+                                    ThemedTextField(placeholder: localizationManager.t("auth.confirmPassword"), text: $confirmPassword, theme: theme, textContentType: .newPassword, autocapitalization: .never, textColorOverride: inputTextColor, placeholderColorOverride: inputPlaceholderColor)
                                 } else {
-                                    ThemedSecureField(placeholder: "Confirm Password", text: $confirmPassword, theme: theme, textContentType: .newPassword)
+                                    ThemedSecureField(placeholder: localizationManager.t("auth.confirmPassword"), text: $confirmPassword, theme: theme, textContentType: .newPassword, textColorOverride: inputTextColor, placeholderColorOverride: inputPlaceholderColor)
                                 }
                                 Button(action: { showConfirmPassword.toggle() }) {
                                     Image(systemName: showConfirmPassword ? "eye.slash.fill" : "eye.fill")
-                                        .foregroundColor(Color(hex: theme.placeholderColor))
+                                        .foregroundColor(Color(hex: inputPlaceholderColor))
                                         .frame(width: 44, height: 44)
                                 }
                             }
@@ -85,7 +109,7 @@ struct LoginView: View {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             } else {
-                                Text(isSignUp ? "Sign Up" : "Login")
+                                Text(isSignUp ? localizationManager.t("auth.signUp") : localizationManager.t("auth.login"))
                                     .fontWeight(.bold)
                             }
                         }
@@ -100,7 +124,7 @@ struct LoginView: View {
                     
                     // Toggle Sign Up / Login
                     Button(action: { withAnimation { isSignUp.toggle() } }, label: {
-                        Text(isSignUp ? "Already have an account? Login" : "Don't have an account? Sign Up")
+                        Text(isSignUp ? localizationManager.t("auth.alreadyHaveAccount") : localizationManager.t("auth.dontHaveAccount"))
                             .foregroundColor(Color(hex: theme.primaryColor))
                             .font(.subheadline)
                     })
@@ -109,13 +133,51 @@ struct LoginView: View {
                 }
             }
         }
+        .sheet(isPresented: $showLanguagePicker) {
+            languagePickerSheet
+        }
         .onChange(of: isSignUp) { _, newValue in
             if !newValue { confirmPassword = "" }
         }
-        .alert("Error", isPresented: $showError) {
-            Button("OK", role: .cancel) {}
+        .alert(localizationManager.t("alert.error"), isPresented: $showError) {
+            Button(localizationManager.t("common.ok"), role: .cancel) {}
         } message: {
             Text(errorMessage)
+        }
+    }
+    
+    private var languagePickerSheet: some View {
+        NavigationStack {
+            ZStack {
+                Color(hex: theme.backgroundColor).ignoresSafeArea()
+                List(AppLanguage.allCases) { language in
+                    Button(action: {
+                        localizationManager.currentLanguage = language
+                        showLanguagePicker = false
+                    }) {
+                        HStack {
+                            Text(language.displayName)
+                                .foregroundColor(Color(hex: theme.textColor))
+                            Spacer()
+                            if localizationManager.currentLanguage == language {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(Color(hex: theme.primaryColor))
+                            }
+                        }
+                    }
+                    .listRowBackground(Color(hex: theme.cardBackground))
+                }
+                .scrollContentBackground(.hidden)
+            }
+            .navigationTitle(localizationManager.t("auth.language"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(hex: theme.backgroundColor), for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(localizationManager.t("common.close")) { showLanguagePicker = false }
+                        .foregroundColor(Color(hex: theme.primaryColor))
+                }
+            }
         }
     }
     
@@ -189,19 +251,26 @@ struct ThemedTextField: View {
     var keyboardType: UIKeyboardType = .default
     var textContentType: UITextContentType?
     var autocapitalization: TextInputAutocapitalization = .sentences
+    /// Override for input text color (e.g. theme.calendarTextColor on login for readability).
+    var textColorOverride: String? = nil
+    /// Override for placeholder color (e.g. theme.subtitleOnCard).
+    var placeholderColorOverride: String? = nil
+    
+    private var inputTextColor: String { textColorOverride ?? theme.textColor }
+    private var inputPlaceholderColor: String { placeholderColorOverride ?? theme.placeholderColor }
     
     var body: some View {
         ZStack(alignment: .leading) {
             if text.isEmpty {
                 Text(placeholder)
                     .font(.body)
-                    .foregroundColor(Color(hex: theme.placeholderColor))
+                    .foregroundColor(Color(hex: inputPlaceholderColor))
                     .padding(.horizontal, 15)
                     .padding(.vertical, 15)
             }
             TextField("", text: $text)
                 .font(.body)
-                .foregroundColor(Color(hex: theme.textColor))
+                .foregroundColor(Color(hex: inputTextColor))
                 .padding(15)
                 .keyboardType(keyboardType)
                 .textContentType(textContentType)
@@ -222,19 +291,24 @@ struct ThemedSecureField: View {
     @Binding var text: String
     let theme: AppTheme
     var textContentType: UITextContentType?
+    var textColorOverride: String? = nil
+    var placeholderColorOverride: String? = nil
+    
+    private var inputTextColor: String { textColorOverride ?? theme.textColor }
+    private var inputPlaceholderColor: String { placeholderColorOverride ?? theme.placeholderColor }
     
     var body: some View {
         ZStack(alignment: .leading) {
             if text.isEmpty {
                 Text(placeholder)
                     .font(.body)
-                    .foregroundColor(Color(hex: theme.placeholderColor))
+                    .foregroundColor(Color(hex: inputPlaceholderColor))
                     .padding(.horizontal, 15)
                     .padding(.vertical, 15)
             }
             SecureField("", text: $text)
                 .font(.body)
-                .foregroundColor(Color(hex: theme.textColor))
+                .foregroundColor(Color(hex: inputTextColor))
                 .padding(15)
                 .textContentType(textContentType)
         }

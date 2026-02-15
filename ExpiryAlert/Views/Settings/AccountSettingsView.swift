@@ -6,11 +6,9 @@ struct AccountSettingsView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @Environment(\.dismiss) private var dismiss
     
-    @State private var email: String = ""
     @State private var currentPassword: String = ""
     @State private var newPassword: String = ""
     @State private var confirmPassword: String = ""
-    @State private var isSavingEmail = false
     @State private var isChangingPassword = false
     @State private var showLogoutAlert = false
     @State private var errorMessage: String?
@@ -21,69 +19,57 @@ struct AccountSettingsView: View {
     var body: some View {
         ZStack {
             Color(hex: theme.backgroundColor).ignoresSafeArea()
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 24) {
+                    // Messages
                     if let err = errorMessage {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(Color(hex: theme.dangerColor))
-                            Text(err)
-                                .font(.subheadline)
-                                .foregroundColor(Color(hex: theme.dangerColor))
-                        }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(hex: theme.dangerColor).opacity(0.12))
-                        .cornerRadius(theme.borderRadius)
+                        messageBanner(icon: "exclamationmark.triangle.fill", text: err, color: theme.dangerColor)
                     }
                     if let ok = successMessage {
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(Color(hex: theme.successColor))
-                            Text(ok)
-                                .font(.subheadline)
-                                .foregroundColor(Color(hex: theme.successColor))
-                        }
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color(hex: theme.successColor).opacity(0.12))
-                        .cornerRadius(theme.borderRadius)
+                        messageBanner(icon: "checkmark.circle.fill", text: ok, color: theme.successColor)
                     }
                     
-                    // Email
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(localizationManager.t("account.email"))
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(Color(hex: theme.placeholderColor))
-                            .textCase(.uppercase)
-                        ThemedTextField(placeholder: localizationManager.t("account.email"), text: $email, theme: theme, keyboardType: .emailAddress, textContentType: .emailAddress, autocapitalization: .never)
-                        Button(action: saveEmail) {
-                            HStack {
-                                if isSavingEmail {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                } else {
-                                    Text(localizationManager.t("account.saveEmail"))
-                                }
+                    // Account info card – email (read-only)
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 14) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color(hex: theme.primaryColor).opacity(0.12))
+                                    .frame(width: 44, height: 44)
+                                Image(systemName: "person.crop.circle.fill")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(Color(hex: theme.primaryColor))
                             }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Color(hex: theme.primaryColor))
-                            .foregroundColor(.white)
-                            .cornerRadius(theme.borderRadius)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(localizationManager.t("account.email"))
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Color(hex: theme.placeholderColor))
+                                    .textCase(.uppercase)
+                                Text(authViewModel.user?.email ?? "—")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(Color(hex: theme.textColor))
+                            }
+                            Spacer()
                         }
-                        .disabled(isSavingEmail || email.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .padding(16)
                     }
+                    .background(cardBackground)
                     
-                    // Change password
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(localizationManager.t("account.changePasswordSection"))
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(Color(hex: theme.placeholderColor))
-                            .textCase(.uppercase)
+                    // Change password card
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(Color(hex: theme.primaryColor))
+                            Text(localizationManager.t("account.changePasswordSection"))
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(Color(hex: theme.textColor))
+                        }
+                        
                         ThemedSecureField(placeholder: localizationManager.t("account.currentPassword"), text: $currentPassword, theme: theme, textContentType: .password)
                         ThemedSecureField(placeholder: localizationManager.t("account.newPassword"), text: $newPassword, theme: theme, textContentType: .newPassword)
                         ThemedSecureField(placeholder: localizationManager.t("account.confirmNewPassword"), text: $confirmPassword, theme: theme, textContentType: .newPassword)
+                        
                         Button(action: changePassword) {
                             HStack {
                                 if isChangingPassword {
@@ -94,24 +80,29 @@ struct AccountSettingsView: View {
                                 }
                             }
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 14)
                             .background(Color(hex: theme.primaryColor))
                             .foregroundColor(.white)
+                            .font(.system(size: 16, weight: .semibold))
                             .cornerRadius(theme.borderRadius)
                         }
                         .disabled(isChangingPassword || currentPassword.isEmpty || newPassword.isEmpty || confirmPassword.isEmpty)
                     }
+                    .padding(20)
+                    .background(cardBackground)
                     
-                    Spacer(minLength: 20)
+                    Spacer(minLength: 32)
                     
                     // Log out
                     Button(action: { showLogoutAlert = true }) {
-                        HStack {
+                        HStack(spacing: 10) {
                             Image(systemName: "rectangle.portrait.and.arrow.right")
+                                .font(.system(size: 16, weight: .medium))
                             Text(localizationManager.t("account.logOut"))
+                                .font(.system(size: 16, weight: .semibold))
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                        .padding(.vertical, 16)
                         .foregroundColor(Color(hex: theme.dangerColor))
                         .background(Color(hex: theme.dangerColor).opacity(0.12))
                         .cornerRadius(theme.borderRadius)
@@ -123,9 +114,6 @@ struct AccountSettingsView: View {
         }
         .navigationTitle(localizationManager.t("account.title"))
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            email = authViewModel.user?.email ?? ""
-        }
         .alert(localizationManager.t("account.logOutAlertTitle"), isPresented: $showLogoutAlert) {
             Button(localizationManager.t("common.cancel"), role: .cancel) {}
             Button(localizationManager.t("account.logOut"), role: .destructive) {
@@ -136,22 +124,30 @@ struct AccountSettingsView: View {
         }
     }
     
-    private func saveEmail() {
-        let trimmed = email.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        errorMessage = nil
-        successMessage = nil
-        isSavingEmail = true
-        Task {
-            do {
-                try await authViewModel.updateEmail(trimmed)
-                successMessage = localizationManager.t("account.emailUpdated")
-                isSavingEmail = false
-            } catch {
-                errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
-                isSavingEmail = false
-            }
+    private func messageBanner(icon: String, text: String, color: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundColor(Color(hex: color))
+            Text(text)
+                .font(.subheadline)
+                .foregroundColor(Color(hex: color))
+            Spacer(minLength: 0)
         }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(hex: color).opacity(0.12))
+        .cornerRadius(theme.borderRadius)
+    }
+    
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 14)
+            .fill(Color(hex: theme.cardBackground))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(Color(hex: theme.borderColor).opacity(0.6), lineWidth: 1)
+            )
+            .shadow(color: Color(hex: theme.shadowColor).opacity(0.25), radius: 6, x: 0, y: 2)
     }
     
     private func changePassword() {

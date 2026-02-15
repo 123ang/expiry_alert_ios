@@ -4,8 +4,10 @@ struct CategoriesManagementView: View {
     @EnvironmentObject var dataStore: DataStore
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var localizationManager: LocalizationManager
+    @Environment(\.dismiss) var dismiss
     
     @State private var showAddSheet = false
+    @State private var showNoSelectionAlert = false
     @State private var editingCategory: Category?
     @State private var newName = ""
     @State private var newIcon = "🍽️"
@@ -90,12 +92,18 @@ struct CategoriesManagementView: View {
         }
     }
     
+    /// Total number of categories currently selected (for display). Empty selection = all count.
+    private var selectedCategoryCount: Int {
+        displayCategoriesDeduplicated.filter { dataStore.isCategorySelected(id: $0.id) }.count
+    }
+    
     var body: some View {
         ZStack {
             Color(hex: theme.backgroundColor).ignoresSafeArea()
             
             VStack(spacing: 0) {
                 searchBar
+                selectAllBar
                 List {
                     errorSection
                     if !searchText.isEmpty && filteredSections.isEmpty {
@@ -128,7 +136,7 @@ struct CategoriesManagementView: View {
                                 }
                             },
                             label: {
-                                sectionHeaderLabel(pair.section, count: pair.items.count)
+                                sectionHeaderLabel(pair.section, count: pair.items.count, selectedInSection: pair.items.filter { dataStore.isCategorySelected(id: $0.id) }.count)
                             }
                         )
                         .listRowBackground(Color(hex: theme.backgroundColor))
@@ -140,7 +148,19 @@ struct CategoriesManagementView: View {
         }
         .navigationTitle(localizationManager.t("categories.title"))
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    if dataStore.visibleDisplayCategories.isEmpty {
+                        showNoSelectionAlert = true
+                    } else {
+                        dismiss()
+                    }
+                }) {
+                    Image(systemName: "chevron.left")
+                }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: {
                     editingCategory = nil
@@ -158,6 +178,12 @@ struct CategoriesManagementView: View {
         .onAppear {
             expandedSections = []
             Task { await dataStore.refreshCategories() }
+        }
+        .alert(localizationManager.t("alert.error"), isPresented: $showNoSelectionAlert) {
+            Button(localizationManager.t("common.ok"), role: .cancel) {}
+            Button(localizationManager.t("manage.leaveAnyway")) { dismiss() }
+        } message: {
+            Text(localizationManager.t("manage.noCategorySelectedMessage"))
         }
         .alert(localizationManager.t("action.delete"), isPresented: $showDeleteAlert) {
             Button(localizationManager.t("common.cancel"), role: .cancel) {
@@ -264,7 +290,33 @@ struct CategoriesManagementView: View {
         return translated != key ? translated : section
     }
     
-    private func sectionHeaderLabel(_ section: String, count: Int) -> some View {
+    private var selectAllBar: some View {
+        HStack(spacing: 12) {
+            Button(action: { dataStore.selectAllCategories() }) {
+                Text(localizationManager.t("manage.selectAll"))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color(hex: theme.primaryColor))
+            }
+            .buttonStyle(PlainButtonStyle())
+            Button(action: { dataStore.deselectAllCategories() }) {
+                Text(localizationManager.t("manage.deselectAll"))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(Color(hex: theme.textSecondary))
+            }
+            .buttonStyle(PlainButtonStyle())
+            Spacer()
+            Text(localizationManager.t("manage.selectedCount").replacingOccurrences(of: "%@", with: "\(selectedCategoryCount)"))
+                .font(.caption)
+                .foregroundColor(Color(hex: theme.subtitleOnBackground))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color(hex: theme.backgroundColor))
+    }
+    
+    private func sectionHeaderLabel(_ section: String, count: Int, selectedInSection: Int) -> some View {
         let displayName = localizedSectionTitle(section)
         return HStack(spacing: 8) {
             Text(displayName)
@@ -272,13 +324,15 @@ struct CategoriesManagementView: View {
                 .foregroundColor(Color(hex: theme.textSecondary))
                 .textCase(.uppercase)
                 .tracking(0.4)
-            Text("\(count)")
-                .font(.caption)
-                .foregroundColor(Color(hex: theme.textSecondary).opacity(0.8))
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color(hex: theme.borderColor).opacity(0.5))
-                .cornerRadius(6)
+            if count > 0 {
+                Text("\(selectedInSection)/\(count)")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(hex: theme.primaryColor))
+                    .cornerRadius(10)
+            }
             Spacer()
         }
         .padding(.vertical, 4)

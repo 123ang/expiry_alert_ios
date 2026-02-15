@@ -245,14 +245,17 @@ struct DashboardView: View {
                                 .foregroundColor(Color(hex: theme.textSecondary))
                                 .frame(maxWidth: .infinity)
                                 .listRowBackground(Color(hex: theme.backgroundColor))
+                                .listRowSeparator(.hidden)
                         }
                     } else {
                         ForEach(items) { item in
                             NavigationLink(destination: ItemDetailView(itemId: item.id)) {
                                 FoodItemRow(item: item, theme: theme, localizationManager: localizationManager, locationDisplayName: localizationManager.getLocationDisplayName(for: item, from: dataStore.displayLocations))
-                                    .padding(.vertical, 4)
+                                    .padding(.vertical, 8)
                             }
                             .listRowBackground(Color(hex: theme.cardBackground))
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
                         }
                     }
                 }
@@ -365,15 +368,11 @@ struct DashboardView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 24)
             } else {
-                VStack(spacing: 0) {
+                VStack(spacing: 8) {
                     ForEach(filteredFoodItems) { item in
                         NavigationLink(destination: ItemDetailView(itemId: item.id)) {
                             FoodItemRow(item: item, theme: theme, localizationManager: localizationManager, locationDisplayName: localizationManager.getLocationDisplayName(for: item, from: dataStore.displayLocations))
                                 .padding(.vertical, 10)
-                        }
-                        if item.id != filteredFoodItems.last?.id {
-                            Divider()
-                                .padding(.leading, 56)
                         }
                     }
                 }

@@ -174,15 +174,11 @@ struct CalendarScreenView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 32)
                             } else {
-                                VStack(spacing: 0) {
+                                VStack(spacing: 8) {
                                     ForEach(itemsForSelectedDate) { item in
                                         NavigationLink(destination: ItemDetailView(itemId: item.id)) {
                                             FoodItemRow(item: item, theme: theme, localizationManager: localizationManager, locationDisplayName: localizationManager.getLocationDisplayName(for: item, from: dataStore.displayLocations))
                                                 .padding(.vertical, 10)
-                                        }
-                                        if item.id != itemsForSelectedDate.last?.id {
-                                            Divider()
-                                                .padding(.leading, 56)
                                         }
                                     }
                                 }

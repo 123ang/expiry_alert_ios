@@ -5,6 +5,7 @@ private let selectedCategoryIdsKey = "selectedCategoryIds"
 private let selectedLocationIdsKey = "selectedLocationIds"
 private let activeGroupIdKey = "active_group_id"
 private let hasAppliedInitialCategorySelectionKey = "hasAppliedInitialCategorySelection"
+private let hasAppliedInitialLocationSelectionKey = "hasAppliedInitialLocationSelection"
 
 /// Translation keys for categories selected by default on first install (Dairy, Vegetables, Meat, Snacks).
 private let defaultSelectedCategoryTranslationKeys: Set<String> = [
@@ -95,17 +96,19 @@ class DataStore: ObservableObject {
         categories.filter { !Self.isDebugCategory($0) && !Self.isOtherCategory($0) }
     }
     
-    /// Visible categories for pickers/dashboard. When user has a category selection, still include all customization (user-added) categories so they always appear in Add Item.
+    /// Visible categories for pickers (Add Item, etc.). Respects Manage Categories: only selected IDs plus user-added (customization) categories. When user has deselected all, empty selection = show only customization categories (not all).
     var visibleDisplayCategories: [Category] {
-        if selectedCategoryIds.isEmpty { return displayCategories }
-        return displayCategories.filter { selectedCategoryIds.contains($0.id) || Self.isCustomizationCategory($0) }
+        let display = displayCategories
+        if selectedCategoryIds.isEmpty {
+            return display.filter { Self.isCustomizationCategory($0) }
+        }
+        return display.filter { selectedCategoryIds.contains($0.id) || Self.isCustomizationCategory($0) }
     }
     
-    /// Toggle whether a category is selected (shown in pickers). Empty set = all selected.
+    /// Toggle whether a category is selected (shown in pickers). Empty = none selected; first tap selects.
     func toggleCategorySelection(id: String) {
-        let allIds = Set(categories.map(\.id))
         if selectedCategoryIds.isEmpty {
-            selectedCategoryIds = allIds.subtracting([id])
+            selectedCategoryIds = [id]
         } else {
             if selectedCategoryIds.contains(id) {
                 selectedCategoryIds = selectedCategoryIds.subtracting([id])
@@ -115,9 +118,19 @@ class DataStore: ObservableObject {
         }
     }
     
-    /// Whether a category is selected (shown). When no selection stored, all are selected.
+    /// Whether a category is selected (shown). When no selection stored, none are selected (so Deselect All works).
     func isCategorySelected(id: String) -> Bool {
-        selectedCategoryIds.isEmpty || selectedCategoryIds.contains(id)
+        selectedCategoryIds.contains(id)
+    }
+    
+    /// Select all display categories (for use in Manage Categories).
+    func selectAllCategories() {
+        selectedCategoryIds = Set(displayCategories.map(\.id))
+    }
+    
+    /// Deselect all display categories except user-added (customization) ones.
+    func deselectAllCategories() {
+        selectedCategoryIds = Set(displayCategories.filter { Self.isCustomizationCategory($0) }.map(\.id))
     }
     
     /// On first install, set selected categories to Dairy, Vegetables, Meat, Snacks only. Idempotent after first run.
@@ -147,9 +160,9 @@ class DataStore: ObservableObject {
         }
     }
     
-    /// Locations to show in pickers when user has made a selection. Empty selection = all.
+    /// Locations to show in pickers. Empty selection = none (user deselected all); otherwise only selected.
     var visibleLocations: [Location] {
-        if selectedLocationIds.isEmpty { return locations }
+        if selectedLocationIds.isEmpty { return [] }
         return locations.filter { selectedLocationIds.contains($0.id) }
     }
     
@@ -217,7 +230,7 @@ class DataStore: ObservableObject {
         let idsToToggle: Set<String> = fridgeIds.contains(id) ? fridgeIds : [id]
         let allIds = Set(locations.map(\.id))
         if selectedLocationIds.isEmpty {
-            selectedLocationIds = allIds.subtracting(idsToToggle)
+            selectedLocationIds = idsToToggle
         } else {
             let anySelected = idsToToggle.contains(where: { selectedLocationIds.contains($0) })
             if anySelected {
@@ -229,12 +242,30 @@ class DataStore: ObservableObject {
     }
     
     func isLocationSelected(id: String) -> Bool {
-        if selectedLocationIds.isEmpty { return true }
+        if selectedLocationIds.isEmpty { return false }
         let fridgeIds = fridgeVariantIds
         if fridgeIds.contains(id) {
             return fridgeIds.contains(where: { selectedLocationIds.contains($0) })
         }
         return selectedLocationIds.contains(id)
+    }
+    
+    /// Select all display locations (for use in Manage Locations).
+    func selectAllLocations() {
+        selectedLocationIds = Set(locations.map(\.id))
+    }
+    
+    /// Deselect all display locations except user-added (customization) ones.
+    func deselectAllLocations() {
+        let customIds = Set(displayLocations.filter { ($0.isCustomization ?? false) }.map(\.id))
+        selectedLocationIds = customIds
+    }
+    
+    /// On first load of locations, set selected to all so pickers show locations. Idempotent after first run.
+    func applyInitialLocationSelectionIfNeeded() {
+        guard !UserDefaults.standard.bool(forKey: hasAppliedInitialLocationSelectionKey) else { return }
+        selectedLocationIds = Set(locations.map(\.id))
+        UserDefaults.standard.set(true, forKey: hasAppliedInitialLocationSelectionKey)
     }
     
     // MARK: - Configuration
@@ -336,6 +367,7 @@ class DataStore: ObservableObject {
             let dLocs = (try? await APIService.shared.getLocations(groupId: nil)) ?? []
             let gLocs = try await APIService.shared.getLocations(groupId: groupId)
             locations = DataStore.mergeDefaultsWithGroup(defaults: dLocs, groupItems: gLocs)
+            applyInitialLocationSelectionIfNeeded()
         } catch {
             self.error = error.localizedDescription
         }
