@@ -162,6 +162,27 @@ class LocalizationManager: ObservableObject {
         "defaultLocation.fridge", "defaultLocation.fridgeTop", "defaultLocation.fridgeMiddle", "defaultLocation.fridgeBottom"
     ]
     
+    /// Returns the localized location name for a food item (for list/detail display). Uses item's translation key or resolves the location and localizes by current app language.
+    func getLocationDisplayName(for item: FoodItem, from locations: [Location]) -> String {
+        if let key = item.locationTranslationKey, !key.isEmpty {
+            let translated = t(key)
+            if translated != key { return translated }
+        }
+        if let loc = locations.first(where: { $0.id == item.locationId }) {
+            return getLocationDisplayName(loc)
+        }
+        if let name = item.locationName, !name.isEmpty {
+            let nameLower = name.trimmingCharacters(in: .whitespaces).lowercased()
+            let nameFirstPart = Self.takeFirstPartOnly(name).trimmingCharacters(in: .whitespaces).lowercased()
+            let key = Self.locationNameToKey[nameLower] ?? Self.locationNameToKey[nameFirstPart]
+            if let k = key {
+                let translated = t(k)
+                if translated != k { return translated }
+            }
+        }
+        return item.locationName ?? ""
+    }
+    
     private func getTranslations() -> [String: String] {
         switch currentLanguage {
         case .en: return Translations.en

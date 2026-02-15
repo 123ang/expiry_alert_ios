@@ -18,6 +18,11 @@ struct ItemDetailView: View {
     
     private var theme: AppTheme { themeManager.currentTheme }
     
+    private var itemLocationDisplayName: String {
+        guard let item = item else { return "" }
+        return localizationManager.getLocationDisplayName(for: item, from: dataStore.displayLocations)
+    }
+    
     var body: some View {
         ZStack {
             Color(hex: theme.backgroundColor).ignoresSafeArea()
@@ -67,8 +72,8 @@ struct ItemDetailView: View {
                             if let catName = item.categoryName {
                                 detailRow(icon: item.categoryIcon ?? "🏷️", label: localizationManager.t("item.category"), value: catName)
                             }
-                            if let locName = item.locationName {
-                                detailRow(icon: item.locationIcon ?? "📍", label: localizationManager.t("item.location"), value: locName)
+                            if !itemLocationDisplayName.isEmpty {
+                                detailRow(icon: item.locationIcon ?? "📍", label: localizationManager.t("item.location"), value: itemLocationDisplayName)
                             }
                             if let notes = item.notes, !notes.isEmpty {
                                 VStack(alignment: .leading, spacing: 8) {

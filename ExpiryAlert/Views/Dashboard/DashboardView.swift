@@ -249,7 +249,7 @@ struct DashboardView: View {
                     } else {
                         ForEach(items) { item in
                             NavigationLink(destination: ItemDetailView(itemId: item.id)) {
-                                FoodItemRow(item: item, theme: theme, localizationManager: localizationManager)
+                                FoodItemRow(item: item, theme: theme, localizationManager: localizationManager, locationDisplayName: localizationManager.getLocationDisplayName(for: item, from: dataStore.displayLocations))
                                     .padding(.vertical, 4)
                             }
                             .listRowBackground(Color(hex: theme.cardBackground))
@@ -368,7 +368,7 @@ struct DashboardView: View {
                 VStack(spacing: 0) {
                     ForEach(filteredFoodItems) { item in
                         NavigationLink(destination: ItemDetailView(itemId: item.id)) {
-                            FoodItemRow(item: item, theme: theme, localizationManager: localizationManager)
+                            FoodItemRow(item: item, theme: theme, localizationManager: localizationManager, locationDisplayName: localizationManager.getLocationDisplayName(for: item, from: dataStore.displayLocations))
                                 .padding(.vertical, 10)
                         }
                         if item.id != filteredFoodItems.last?.id {
@@ -715,6 +715,8 @@ struct FoodItemRow: View {
     let item: FoodItem
     let theme: AppTheme
     let localizationManager: LocalizationManager
+    /// Localized location name (so it changes with app language).
+    let locationDisplayName: String
     
     var body: some View {
         HStack(spacing: 12) {
@@ -753,8 +755,8 @@ struct FoodItemRow: View {
                         .foregroundColor(Color(hex: item.status.color))
                     }
                     
-                    if let locName = item.locationName {
-                        Text(locName)
+                    if !locationDisplayName.isEmpty {
+                        Text(locationDisplayName)
                             .font(.caption)
                             .foregroundColor(Color(hex: theme.textSecondary))
                     }
