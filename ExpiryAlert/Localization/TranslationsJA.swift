@@ -66,7 +66,7 @@ enum TranslationsJA {
     "settings.clearUsedAlertTitle": "使用済みを削除", "settings.clearUsedAlertMessage": "リストの消費済みアイテムをすべて削除します。この操作は取り消せません。",
     "settings.clearButton": "削除",
     "addItem.title": "アイテム追加", "addItem.editTitle": "アイテムを編集", "addItem.itemName": "アイテム名",
-    "addItem.itemNamePlaceholder": "食品名を入力", "addItem.quantity": "数量", "addItem.quantityPlaceholder": "数量を入力",
+    "addItem.itemNamePlaceholder": "アイテム名を入力", "addItem.quantity": "数量", "addItem.quantityPlaceholder": "数量を入力",
     "addItem.category": "カテゴリ", "addItem.storageLocation": "保管場所", "addItem.expiryDate": "賞味期限",
     "addItem.notes": "メモ", "addItem.notesPlaceholder": "メモを追加（任意）",
     "form.photo": "写真（任意）", "image.addPhoto": "写真を追加", "image.changePhoto": "変更", "image.removePhoto": "削除",

@@ -226,7 +226,7 @@ struct FoodListView: View {
                         Spacer(minLength: 4)
                         Image(systemName: "chevron.down")
                             .font(.caption.weight(.semibold))
-                            .foregroundColor(Color(hex: theme.textSecondary))
+                            .foregroundColor(Color(hex: theme.subtitleOnCard))
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
@@ -258,7 +258,7 @@ struct FoodListView: View {
                         Spacer(minLength: 4)
                         Image(systemName: "chevron.down")
                             .font(.caption.weight(.semibold))
-                            .foregroundColor(Color(hex: theme.textSecondary))
+                            .foregroundColor(Color(hex: theme.subtitleOnCard))
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
@@ -398,7 +398,7 @@ struct FoodListView: View {
                                 .foregroundColor(Color(hex: theme.primaryColor))
                             Image(systemName: wishlistFiltersCollapsed ? "chevron.down" : "chevron.up")
                                 .font(.caption.weight(.semibold))
-                                .foregroundColor(Color(hex: theme.textSecondary))
+                                .foregroundColor(Color(hex: theme.subtitleOnCard))
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
@@ -451,7 +451,7 @@ struct FoodListView: View {
                         .foregroundColor(Color(hex: theme.textColor))
                     Text(localizationManager.t("wishList.amountNeededSubtitle"))
                         .font(.caption)
-                        .foregroundColor(Color(hex: theme.textSecondary))
+                        .foregroundColor(Color(hex: theme.subtitleOnCard))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(18)
@@ -498,7 +498,7 @@ struct FoodListView: View {
             Text(title)
                 .font(.subheadline)
                 .fontWeight(selected ? .semibold : .medium)
-                .foregroundColor(selected ? .white : Color(hex: theme.placeholderColor))
+                .foregroundColor(selected ? .white : Color(hex: theme.subtitleOnBackground))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .frame(maxWidth: .infinity)
@@ -521,7 +521,7 @@ struct FoodListView: View {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 12))
             }
-            .foregroundColor(selected ? .white : Color(hex: theme.placeholderColor))
+            .foregroundColor(selected ? .white : Color(hex: theme.subtitleOnBackground))
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity)
@@ -540,7 +540,7 @@ struct FoodListView: View {
             Spacer()
             Text(message)
                 .font(.subheadline)
-                .foregroundColor(Color(hex: theme.textSecondary))
+                .foregroundColor(Color(hex: theme.subtitleOnBackground))
                 .multilineTextAlignment(.center)
             Button(action: onAddTap) {
                 Text(buttonTitle)

@@ -323,7 +323,7 @@ struct DashboardView: View {
                             Text(homeFilterModeLabel(mode))
                                 .font(.subheadline)
                                 .fontWeight(homeFilterMode == mode ? .semibold : .medium)
-                                .foregroundColor(homeFilterMode == mode ? .white : Color(hex: theme.textSecondary))
+                                .foregroundColor(homeFilterMode == mode ? .white : Color(hex: theme.subtitleOnBackground))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 10)
                                 .background(homeFilterMode == mode ? Color(hex: theme.primaryColor) : Color(hex: theme.cardBackground))
@@ -781,7 +781,7 @@ struct FoodItemRow: View {
                     if !locationDisplayName.isEmpty {
                         Text(locationDisplayName)
                             .font(.caption)
-                            .foregroundColor(Color(hex: theme.textSecondary))
+                            .foregroundColor(Color(hex: theme.subtitleOnCard))
                     }
                 }
             }
@@ -791,7 +791,7 @@ struct FoodItemRow: View {
             Text("x\(item.quantity)")
                 .font(.caption)
                 .fontWeight(.medium)
-                .foregroundColor(Color(hex: theme.textSecondary))
+                .foregroundColor(Color(hex: theme.subtitleOnCard))
         }
         .padding(.vertical, 4)
     }

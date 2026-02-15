@@ -84,31 +84,31 @@ struct CalendarScreenView: View {
                                 Button(action: { changeMonth(-1) }) {
                                     Image(systemName: "chevron.left")
                                         .font(.system(size: 16, weight: .semibold))
-                                        .foregroundColor(Color(hex: theme.textColor))
+                                        .foregroundColor(Color(hex: theme.calendarTextColor))
                                         .frame(width: 44, height: 44)
                                         .contentShape(Rectangle())
                                 }
                                 Spacer()
                                 Text("\(months[Calendar.current.component(.month, from: currentMonth) - 1]) \(Calendar.current.component(.year, from: currentMonth))")
                                     .font(.system(size: 17, weight: .semibold))
-                                    .foregroundColor(Color(hex: theme.textColor))
+                                    .foregroundColor(Color(hex: theme.calendarTextColor))
                                 Spacer()
                                 Button(action: { changeMonth(1) }) {
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: 16, weight: .semibold))
-                                        .foregroundColor(Color(hex: theme.textColor))
+                                        .foregroundColor(Color(hex: theme.calendarTextColor))
                                         .frame(width: 44, height: 44)
                                         .contentShape(Rectangle())
                                 }
                             }
                             .padding(.horizontal, 4)
                             
-                            // Week Days Header – more spacing
+                            // Week Days Header – contrasting secondary on card
                             HStack(spacing: 0) {
                                 ForEach(weekDays, id: \.self) { day in
                                     Text(day)
                                         .font(.system(size: 11, weight: .medium))
-                                        .foregroundColor(Color(hex: theme.placeholderColor))
+                                        .foregroundColor(Color(hex: theme.subtitleOnCard))
                                         .frame(maxWidth: .infinity)
                                 }
                             }
@@ -293,8 +293,8 @@ struct DayCell: View {
                 .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
                 .foregroundColor(
                     isSelected ? .white :
-                    !isCurrentMonth ? Color(hex: theme.textSecondary).opacity(0.4) :
-                    Color(hex: theme.textColor)
+                    !isCurrentMonth ? Color(hex: theme.calendarTextColor).opacity(0.4) :
+                    Color(hex: theme.calendarTextColor)
                 )
             
             if hasItems && !isSelected {

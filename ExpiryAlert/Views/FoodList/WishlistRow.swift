@@ -22,13 +22,13 @@ struct WishlistRow: View {
                 if let price = item.price {
                     Text("\(item.currencySymbol)\(String(format: "%.2f", price))")
                         .font(.subheadline)
-                        .foregroundColor(Color(hex: theme.textSecondary))
+                        .foregroundColor(Color(hex: theme.subtitleOnCard))
                 }
                 HStack(spacing: 4) {
                     ForEach(1...5, id: \.self) { level in
                         Image(systemName: level <= item.desireLevel ? "heart.fill" : "heart")
                             .font(.system(size: 12))
-                            .foregroundColor(level <= item.desireLevel ? Color(red: 0.91, green: 0.22, blue: 0.39) : Color(hex: theme.textSecondary).opacity(0.35))
+                            .foregroundColor(level <= item.desireLevel ? Color(red: 0.91, green: 0.22, blue: 0.39) : Color(hex: theme.subtitleOnCard).opacity(0.35))
                     }
                 }
             }

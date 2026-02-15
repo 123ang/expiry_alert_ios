@@ -144,14 +144,16 @@ struct AddItemView: View {
                     FormField(label: localizationManager.t("addItem.expiryDate"), theme: theme) {
                         DatePicker("", selection: $expiryDate, displayedComponents: .date)
                             .datePickerStyle(.graphical)
+                            .environment(\.colorScheme, theme.isDarkCardTheme ? .dark : .light)
                             .tint(Color(hex: theme.primaryColor))
-                            .foregroundColor(Color(hex: theme.textColor))
+                            .foregroundColor(Color(hex: theme.calendarTextColor))
                             .padding()
                             .background(Color(hex: theme.cardBackground))
                             .cornerRadius(12)
                     }
                     FormField(label: localizationManager.t("addItem.notes"), theme: theme) {
                         TextEditor(text: $notes)
+                            .scrollContentBackground(.hidden)
                             .frame(minHeight: 80)
                             .padding(8)
                             .background(Color(hex: theme.cardBackground))
@@ -769,6 +771,8 @@ struct LocationPickerSheet: View {
 struct FormField<Content: View>: View {
     let label: String
     let theme: AppTheme
+    /// When set, use for label text (e.g. titleOnBackground in modals on dark theme). Default nil = theme.textColor.
+    var labelColor: String? = nil
     @ViewBuilder let content: Content
     
     var body: some View {
@@ -776,7 +780,7 @@ struct FormField<Content: View>: View {
             Text(label)
                 .font(.subheadline)
                 .fontWeight(.medium)
-                .foregroundColor(Color(hex: theme.textColor))
+                .foregroundColor(Color(hex: labelColor ?? theme.textColor))
             content
         }
     }

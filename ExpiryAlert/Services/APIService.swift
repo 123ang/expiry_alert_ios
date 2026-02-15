@@ -697,13 +697,17 @@ extension APIService {
         return response.user
     }
     
-    /// Change password. Backend: POST /users/me/change-password with current_password, new_password.
+    /// Change password. Tries POST /users/me/change-password; if 404, tries POST /auth/change-password (same body).
     func changePassword(currentPassword: String, newPassword: String) async throws {
         let body: [String: Any] = [
             "current_password": currentPassword,
             "new_password": newPassword
         ]
-        try await requestVoid(endpoint: "/users/me/change-password", method: "POST", body: body)
+        do {
+            try await requestVoid(endpoint: "/users/me/change-password", method: "POST", body: body)
+        } catch APIError.serverError(404, _) {
+            try await requestVoid(endpoint: "/auth/change-password", method: "POST", body: body)
+        }
     }
     
     func getUserSettings() async throws -> UserSettings {

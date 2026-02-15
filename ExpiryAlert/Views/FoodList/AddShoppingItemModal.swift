@@ -49,16 +49,16 @@ struct AddShoppingItemModal: View {
             ZStack {
                 Color(hex: theme.backgroundColor).ignoresSafeArea()
                 VStack(spacing: 20) {
-                    FormField(label: localizationManager.t("addItem.itemName"), theme: theme) {
+                    FormField(label: localizationManager.t("addItem.itemName"), theme: theme, labelColor: theme.titleOnBackground) {
                         ThemedTextField(placeholder: localizationManager.t("addItem.itemNamePlaceholder"), text: $name, theme: theme)
                     }
-                    FormField(label: localizationManager.t("list.whereToBuy"), theme: theme) {
+                    FormField(label: localizationManager.t("list.whereToBuy"), theme: theme, labelColor: theme.titleOnBackground) {
                         VStack(alignment: .leading, spacing: 8) {
                             ThemedTextField(placeholder: localizationManager.t("list.whereToBuyPlaceholder"), text: $whereToBuy, theme: theme)
                             if !filteredSuggestions.isEmpty {
                                 Text(localizationManager.t("list.whereToBuySuggestions"))
                                     .font(.caption)
-                                    .foregroundColor(Color(hex: theme.textSecondary))
+                                    .foregroundColor(Color(hex: theme.subtitleOnBackground))
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 8) {
                                         ForEach(filteredSuggestions, id: \.self) { suggestion in
@@ -79,15 +79,15 @@ struct AddShoppingItemModal: View {
                             }
                         }
                     }
-                    FormField(label: localizationManager.t("addItem.category"), theme: theme) {
+                    FormField(label: localizationManager.t("addItem.category"), theme: theme, labelColor: theme.titleOnBackground) {
                         Button(action: { showCategoryPicker = true }, label: {
                             HStack {
                                 Text(selectedCategoryName)
-                                    .foregroundColor(selectedCategoryId == nil ? Color(hex: theme.placeholderColor) : Color(hex: theme.textColor))
+                                    .foregroundColor(selectedCategoryId == nil ? Color(hex: theme.placeholderColor) : Color(hex: theme.titleOnBackground))
                                 Spacer()
                                 Image(systemName: "chevron.right")
                                     .font(.caption)
-                                    .foregroundColor(Color(hex: theme.placeholderColor))
+                                    .foregroundColor(Color(hex: theme.subtitleOnBackground))
                             }
                             .padding(12)
                             .background(Color(hex: theme.cardBackground))
@@ -108,8 +108,8 @@ struct AddShoppingItemModal: View {
                 }
                 .padding(20)
             }
-            .navigationTitle(editingItem == nil ? localizationManager.t("shoppingList.addItem") : localizationManager.t("common.edit"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(hex: theme.backgroundColor), for: .navigationBar)
             .onAppear {
                 if let item = editingItem {
                     name = item.name
@@ -118,6 +118,11 @@ struct AddShoppingItemModal: View {
                 }
             }
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(editingItem == nil ? localizationManager.t("shoppingList.addItem") : localizationManager.t("common.edit"))
+                        .font(.headline)
+                        .foregroundColor(Color(hex: theme.titleOnBackground))
+                }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(localizationManager.t("common.cancel"), action: { dismiss() })
                         .foregroundColor(Color(hex: theme.primaryColor))
@@ -212,7 +217,7 @@ struct SimpleCategoryPickerSheet: View {
                                 Text(category.icon ?? "🍽️")
                                     .font(.title3)
                                 Text(localizationManager.getCategoryName(category))
-                                    .foregroundColor(Color(hex: theme.textColor))
+                                    .foregroundColor(Color(hex: theme.titleOnBackground))
                                 Spacer()
                                 if selectedCategoryId == category.id {
                                     Image(systemName: "checkmark.circle.fill")
@@ -228,9 +233,14 @@ struct SimpleCategoryPickerSheet: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
             }
-            .navigationTitle(localizationManager.t("addItem.category"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(hex: theme.backgroundColor), for: .navigationBar)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(localizationManager.t("addItem.category"))
+                        .font(.headline)
+                        .foregroundColor(Color(hex: theme.titleOnBackground))
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(localizationManager.t("common.close"), action: {
                         onDismiss()

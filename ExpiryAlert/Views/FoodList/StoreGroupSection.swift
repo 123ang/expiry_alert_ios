@@ -21,7 +21,7 @@ struct StoreGroupSection<RowContent: View>: View {
             HStack(spacing: 8) {
                 Image(systemName: "storefront")
                     .font(.subheadline)
-                    .foregroundColor(Color(hex: theme.textSecondary))
+                    .foregroundColor(Color(hex: theme.subtitleOnCard))
                 Text(storeName)
                     .font(.subheadline)
                     .fontWeight(.semibold)
@@ -31,5 +31,6 @@ struct StoreGroupSection<RowContent: View>: View {
             .padding(.vertical, 4)
         }
         .accentColor(Color(hex: theme.primaryColor))
+        .listRowBackground(Color(hex: theme.cardBackground))
     }
 }

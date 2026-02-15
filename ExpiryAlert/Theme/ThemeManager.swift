@@ -20,6 +20,71 @@ struct AppTheme: Equatable {
     let dangerColor: String
     let headerBackground: String
     let borderRadius: CGFloat
+    
+    /// Secondary text color that contrasts with cardBackground. Use for subtitles and captions on cards so they stay readable in all themes.
+    var subtitleOnCard: String {
+        Self.contrastingSubtitleHex(forBackgroundHex: cardBackground)
+    }
+    
+    /// Secondary text that contrasts with backgroundColor. Use for labels on the main screen background.
+    var subtitleOnBackground: String {
+        Self.contrastingSubtitleHex(forBackgroundHex: backgroundColor)
+    }
+    
+    /// Title and label text on the main screen background. White for Black/Dark Brown/Dark Gold; otherwise dark on light background, white on dark.
+    var titleOnBackground: String {
+        if useWhiteCalendarText { return "#FFFFFF" }
+        return Self.luminance(ofHex: backgroundColor) > 0.5 ? "#212529" : "#FFFFFF"
+    }
+    
+    /// Text color for calendar UI (month, weekdays, dates). White for Black/Dark Brown/Dark Gold; otherwise dark on light card, white on dark card.
+    var calendarTextColor: String {
+        if useWhiteCalendarText { return "#FFFFFF" }
+        return Self.calendarTextHex(forBackgroundHex: cardBackground)
+    }
+    
+    /// True when the card (or calendar) background is dark so the system date picker should use light content (white text). Explicitly true for Black, Dark Brown, Dark Gold.
+    var isDarkCardTheme: Bool {
+        useWhiteCalendarText || Self.luminance(ofHex: cardBackground) <= 0.5
+    }
+    
+    /// Black, Dark Brown, and Dark Gold always use white calendar text.
+    private var useWhiteCalendarText: Bool {
+        switch name {
+        case "Black", "Dark Brown", "Dark Gold": return true
+        default: return false
+        }
+    }
+    
+    /// Returns dark (#212529) for bright backgrounds, white (#FFFFFF) for dark backgrounds (by luminance of card).
+    private static func calendarTextHex(forBackgroundHex hex: String) -> String {
+        let lum = luminance(ofHex: hex)
+        return lum > 0.5 ? "#212529" : "#FFFFFF"
+    }
+    
+    private static func luminance(ofHex hex: String) -> Double {
+        let h = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        guard h.count == 6 || h.count == 8 else { return 0.5 }
+        var int: UInt64 = 0
+        Scanner(string: h).scanHexInt64(&int)
+        let r = Double((int >> 16) & 0xFF) / 255
+        let g = Double((int >> 8) & 0xFF) / 255
+        let b = Double(int & 0xFF) / 255
+        return 0.299 * r + 0.587 * g + 0.114 * b
+    }
+    
+    /// Returns a hex color for secondary text that contrasts with the given background (dark grey on light BG, light grey on dark BG).
+    private static func contrastingSubtitleHex(forBackgroundHex hex: String) -> String {
+        let h = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        guard h.count == 6 || h.count == 8 else { return "#6B7280" }
+        var int: UInt64 = 0
+        Scanner(string: h).scanHexInt64(&int)
+        let r = Double((int >> 16) & 0xFF) / 255
+        let g = Double((int >> 8) & 0xFF) / 255
+        let b = Double(int & 0xFF) / 255
+        let luminance = 0.299 * r + 0.587 * g + 0.114 * b
+        return luminance > 0.5 ? "#4B5563" : "#D1D5DB"
+    }
 }
 
 // MARK: - All 11 Themes

@@ -37,11 +37,8 @@ struct ItemDetailView: View {
                             Color(hex: theme.cardBackground)
                             
                             VStack(spacing: 12) {
-                                if let icon = item.categoryIcon, !icon.isEmpty {
-                                    Text(icon)
-                                        .font(.system(size: 60))
-                                } else if let imageUrl = item.imageUrl,
-                                          let url = URL(string: imageUrl.secureImageURLString) {
+                                if let imageUrl = item.imageUrl, !imageUrl.isEmpty,
+                                   let url = URL(string: imageUrl.secureImageURLString) {
                                     AsyncImage(url: url) { image in
                                         image.resizable().scaledToFill()
                                     } placeholder: {
@@ -49,6 +46,9 @@ struct ItemDetailView: View {
                                     }
                                     .frame(width: 120, height: 120)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
+                                } else if let icon = item.categoryIcon, !icon.isEmpty {
+                                    Text(icon)
+                                        .font(.system(size: 60))
                                 } else {
                                     Image(systemName: "fork.knife")
                                         .font(.system(size: 48))

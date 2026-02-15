@@ -22,7 +22,7 @@ struct FilterPills: View {
                     Text(label(for: filter))
                         .font(.subheadline)
                         .fontWeight(selected == filter ? .semibold : .medium)
-                        .foregroundColor(selected == filter ? .white : Color(hex: theme.textSecondary))
+                        .foregroundColor(selected == filter ? .white : Color(hex: theme.subtitleOnCard))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(selected == filter ? Color(hex: theme.primaryColor) : Color.clear)

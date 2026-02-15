@@ -66,7 +66,7 @@ enum TranslationsTH {
     "settings.clearUsedAlertTitle": "ล้างรายการที่ใช้แล้ว", "settings.clearUsedAlertMessage": "การดำเนินการนี้จะลบรายการที่ใช้แล้วทั้งหมดออกจากรายการของคุณ ไม่สามารถยกเลิกได้",
     "settings.clearButton": "ล้าง",
     "addItem.title": "เพิ่มรายการ", "addItem.editTitle": "แก้ไขรายการ", "addItem.itemName": "ชื่อรายการ",
-    "addItem.itemNamePlaceholder": "ใส่ชื่อรายการอาหาร", "addItem.quantity": "จำนวน", "addItem.quantityPlaceholder": "ใส่จำนวน",
+    "addItem.itemNamePlaceholder": "ใส่ชื่อรายการ", "addItem.quantity": "จำนวน", "addItem.quantityPlaceholder": "ใส่จำนวน",
     "addItem.category": "หมวดหมู่", "addItem.storageLocation": "ตำแหน่งจัดเก็บ", "addItem.expiryDate": "วันหมดอายุ",
     "addItem.notes": "บันทึก", "addItem.notesPlaceholder": "เพิ่มหมายเหตุเกี่ยวกับรายการ",
     "form.photo": "รูปภาพ (ไม่บังคับ)", "image.addPhoto": "เพิ่มรูป", "image.changePhoto": "เปลี่ยน", "image.removePhoto": "ลบ",

@@ -88,7 +88,7 @@ enum TranslationsEN {
     "settings.clearUsedAlertTitle": "Clear Used Items", "settings.clearUsedAlertMessage": "This will remove all consumed items from your list. This action cannot be undone.",
     "settings.clearButton": "Clear",
     "addItem.title": "Add Item", "addItem.editTitle": "Edit Item",
-    "addItem.itemName": "Item Name", "addItem.itemNamePlaceholder": "Enter food item name",
+    "addItem.itemName": "Item Name", "addItem.itemNamePlaceholder": "Enter item name",
     "addItem.quantity": "Quantity", "addItem.quantityPlaceholder": "Enter quantity",
     "addItem.category": "Category", "addItem.storageLocation": "Storage Location",
     "addItem.expiryDate": "Expiry Date",

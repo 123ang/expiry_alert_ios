@@ -66,7 +66,7 @@ enum TranslationsZH {
     "settings.clearUsedAlertTitle": "清除已使用项目", "settings.clearUsedAlertMessage": "将从列表中移除所有已消耗项目。此操作无法撤销。",
     "settings.clearButton": "清除",
     "addItem.title": "添加项目", "addItem.editTitle": "编辑项目", "addItem.itemName": "项目名称",
-    "addItem.itemNamePlaceholder": "输入食品名称", "addItem.quantity": "数量", "addItem.quantityPlaceholder": "输入数量",
+    "addItem.itemNamePlaceholder": "输入项目名称", "addItem.quantity": "数量", "addItem.quantityPlaceholder": "输入数量",
     "addItem.category": "分类", "addItem.storageLocation": "存储位置", "addItem.expiryDate": "到期日期",
     "addItem.notes": "备注", "addItem.notesPlaceholder": "添加备注（可选）",
     "form.photo": "照片（可选）", "image.addPhoto": "添加照片", "image.changePhoto": "更换", "image.removePhoto": "删除",

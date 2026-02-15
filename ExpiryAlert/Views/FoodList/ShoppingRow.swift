@@ -23,7 +23,7 @@ struct ShoppingRow: View {
             Button(action: onToggle) {
                 Image(systemName: item.isPurchased ? "checkmark.circle.fill" : "circle")
                     .font(.title2)
-                    .foregroundColor(item.isPurchased ? Color(hex: theme.primaryColor) : Color(hex: theme.textSecondary))
+                    .foregroundColor(item.isPurchased ? Color(hex: theme.primaryColor) : Color(hex: theme.subtitleOnCard))
             }
             .buttonStyle(PlainButtonStyle())
 
@@ -32,10 +32,10 @@ struct ShoppingRow: View {
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .strikethrough(item.isPurchased)
-                    .foregroundColor(item.isPurchased ? Color(hex: theme.textSecondary).opacity(0.8) : Color(hex: theme.textColor))
+                    .foregroundColor(item.isPurchased ? Color(hex: theme.subtitleOnCard).opacity(0.9) : Color(hex: theme.textColor))
                 Text("\(categoryDisplay) • \(whereToBuyDisplay)")
                     .font(.caption)
-                    .foregroundColor(item.isPurchased ? Color(hex: theme.textSecondary).opacity(0.7) : Color(hex: theme.textSecondary))
+                    .foregroundColor(item.isPurchased ? Color(hex: theme.subtitleOnCard).opacity(0.8) : Color(hex: theme.subtitleOnCard))
                     .strikethrough(item.isPurchased)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

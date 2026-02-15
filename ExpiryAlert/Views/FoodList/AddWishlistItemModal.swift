@@ -30,10 +30,10 @@ struct AddWishlistItemModal: View {
             ZStack {
                 Color(hex: theme.backgroundColor).ignoresSafeArea()
                 VStack(spacing: 20) {
-                    FormField(label: localizationManager.t("addItem.itemName"), theme: theme) {
+                    FormField(label: localizationManager.t("addItem.itemName"), theme: theme, labelColor: theme.titleOnBackground) {
                         ThemedTextField(placeholder: localizationManager.t("addItem.itemNamePlaceholder"), text: $name, theme: theme)
                     }
-                    FormField(label: localizationManager.t("wishList.price"), theme: theme) {
+                    FormField(label: localizationManager.t("wishList.price"), theme: theme, labelColor: theme.titleOnBackground) {
                         HStack(spacing: 12) {
                             Menu {
                                 ForEach(CurrencyOption.all) { currency in
@@ -45,7 +45,7 @@ struct AddWishlistItemModal: View {
                                             Text(currency.symbol)
                                             Text(currency.name)
                                             Text("(\(currency.code))")
-                                                .foregroundColor(Color(hex: theme.textSecondary))
+                                                .foregroundColor(Color(hex: theme.subtitleOnCard))
                                             if selectedCurrencyCode == currency.code {
                                                 Image(systemName: "checkmark")
                                                     .foregroundColor(Color(hex: theme.primaryColor))
@@ -58,11 +58,11 @@ struct AddWishlistItemModal: View {
                                     Text(selectedCurrency.symbol)
                                         .font(.subheadline)
                                         .fontWeight(.medium)
-                                        .foregroundColor(Color(hex: theme.textColor))
+                                        .foregroundColor(Color(hex: theme.titleOnBackground))
                                         .frame(minWidth: 32, alignment: .leading)
                                     Image(systemName: "chevron.down")
                                         .font(.caption2)
-                                        .foregroundColor(Color(hex: theme.textSecondary))
+                                        .foregroundColor(Color(hex: theme.subtitleOnBackground))
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 10)
@@ -76,7 +76,7 @@ struct AddWishlistItemModal: View {
                             ThemedTextField(placeholder: "0.00", text: $priceText, theme: theme, keyboardType: .decimalPad)
                         }
                     }
-                    FormField(label: localizationManager.t("wishList.desireLevel"), theme: theme) {
+                    FormField(label: localizationManager.t("wishList.desireLevel"), theme: theme, labelColor: theme.titleOnBackground) {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 12) {
                                 ForEach(1...5, id: \.self) { level in
@@ -84,7 +84,7 @@ struct AddWishlistItemModal: View {
                                         Text(level == 1 ? "1" : level == 5 ? "5" : "\(level)")
                                             .font(.subheadline)
                                             .fontWeight(desireLevel == level ? .bold : .regular)
-                                            .foregroundColor(desireLevel == level ? .white : Color(hex: theme.textColor))
+                                            .foregroundColor(desireLevel == level ? .white : Color(hex: theme.calendarTextColor))
                                             .frame(width: 44, height: 44)
                                             .background(desireLevel == level ? Color(hex: theme.primaryColor) : Color(hex: theme.cardBackground))
                                             .clipShape(Circle())
@@ -103,7 +103,7 @@ struct AddWishlistItemModal: View {
                                     .font(.system(size: 10))
                                     .foregroundColor(Color(red: 0.91, green: 0.22, blue: 0.39))
                             }
-                            .foregroundColor(Color(hex: theme.textSecondary))
+                            .foregroundColor(Color(hex: theme.subtitleOnBackground))
                         }
                         .padding(12)
                         .background(Color(hex: theme.cardBackground))
@@ -122,9 +122,14 @@ struct AddWishlistItemModal: View {
                 }
                 .padding(20)
             }
-            .navigationTitle(editingItem == nil ? localizationManager.t("wishList.addItem") : localizationManager.t("wishList.editItem"))
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(hex: theme.backgroundColor), for: .navigationBar)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(editingItem == nil ? localizationManager.t("wishList.addItem") : localizationManager.t("wishList.editItem"))
+                        .font(.headline)
+                        .foregroundColor(Color(hex: theme.titleOnBackground))
+                }
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(localizationManager.t("common.cancel"), action: { dismiss() })
                         .foregroundColor(Color(hex: theme.primaryColor))

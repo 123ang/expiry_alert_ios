@@ -66,7 +66,7 @@ enum TranslationsMS {
     "settings.clearUsedAlertTitle": "Kosongkan Item Diguna", "settings.clearUsedAlertMessage": "Ini akan membuang semua item yang telah digunakan dari senarai anda. Tindakan ini tidak boleh dibatalkan.",
     "settings.clearButton": "Kosongkan",
     "addItem.title": "Tambah Item", "addItem.editTitle": "Edit Item", "addItem.itemName": "Nama Item",
-    "addItem.itemNamePlaceholder": "Masukkan nama item makanan", "addItem.quantity": "Kuantiti", "addItem.quantityPlaceholder": "Masukkan kuantiti",
+    "addItem.itemNamePlaceholder": "Masukkan nama item", "addItem.quantity": "Kuantiti", "addItem.quantityPlaceholder": "Masukkan kuantiti",
     "addItem.category": "Kategori", "addItem.storageLocation": "Lokasi Simpanan", "addItem.expiryDate": "Tarikh Tamat",
     "addItem.notes": "Nota", "addItem.notesPlaceholder": "Tambah nota tentang item",
     "form.photo": "Foto (Pilihan)", "image.addPhoto": "Tambah Foto", "image.changePhoto": "Tukar", "image.removePhoto": "Buang",

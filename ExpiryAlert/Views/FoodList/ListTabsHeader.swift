@@ -47,7 +47,7 @@ struct ListTabsHeader: View {
                         Text(isShopping ? localizationManager.t("shoppingList.shopping") : localizationManager.t("shoppingList.wishlist"))
                             .font(.subheadline)
                             .fontWeight(isSelected ? .semibold : .medium)
-                            .foregroundColor(isSelected ? .white : Color(hex: theme.textSecondary))
+                            .foregroundColor(isSelected ? .white : Color(hex: theme.subtitleOnCard))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                             .background(isSelected ? Color(hex: theme.primaryColor) : Color(hex: theme.cardBackground))
