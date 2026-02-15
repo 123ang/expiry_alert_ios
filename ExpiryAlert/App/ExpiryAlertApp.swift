@@ -8,6 +8,13 @@ struct ExpiryAlertApp: App {
     @StateObject private var dataStore = DataStore()
     @StateObject private var notificationService = NotificationService()
     
+    init() {
+        // Larger cache for item thumbnails so list and detail can reuse loaded images
+        let memoryCapacity = 50 * 1024 * 1024  // 50 MB
+        let diskCapacity = 100 * 1024 * 1024   // 100 MB
+        URLCache.shared = URLCache(memoryCapacity: memoryCapacity, diskCapacity: diskCapacity)
+    }
+    
     var body: some Scene {
         WindowGroup {
             ContentView()

@@ -315,13 +315,15 @@ struct AddItemView: View {
                 if let locId = selectedLocationId { itemData["location_id"] = locId }
                 if !notes.isEmpty { itemData["notes"] = notes }
                 
-                // Upload image if selected
-                if let image = selectedImage, let imageData = image.jpegData(compressionQuality: 0.8) {
+                // Upload image if selected (only set image_url when upload returns a non-empty URL)
+                if let image = selectedImage, let imageData = image.jpegData(compressionQuality: 0.8), !imageData.isEmpty {
                     let imageUrl = try await APIService.shared.uploadImage(
                         imageData: imageData,
                         filename: "\(UUID().uuidString).jpg"
                     )
-                    itemData["image_url"] = imageUrl
+                    if !imageUrl.isEmpty {
+                        itemData["image_url"] = imageUrl
+                    }
                 }
                 
                 if let editItem = editingItem {

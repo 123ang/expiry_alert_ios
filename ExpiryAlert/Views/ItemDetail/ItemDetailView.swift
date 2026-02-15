@@ -40,7 +40,8 @@ struct ItemDetailView: View {
                                 if let icon = item.categoryIcon, !icon.isEmpty {
                                     Text(icon)
                                         .font(.system(size: 60))
-                                } else if let imageUrl = item.imageUrl, let url = URL(string: imageUrl) {
+                                } else if let imageUrl = item.imageUrl,
+                                          let url = URL(string: imageUrl.secureImageURLString) {
                                     AsyncImage(url: url) { image in
                                         image.resizable().scaledToFill()
                                     } placeholder: {
@@ -258,11 +259,14 @@ struct ItemDetailView: View {
     @discardableResult
     private func loadItem() async -> FoodItem? {
         isLoading = true
-        var loaded = dataStore.foodItems.first { $0.id == itemId }
-        if loaded == nil {
-            do {
-                loaded = try await APIService.shared.getFoodItem(id: itemId)
-            } catch {}
+        var loaded: FoodItem?
+        do {
+            loaded = try await APIService.shared.getFoodItem(id: itemId)
+            if let full = loaded {
+                dataStore.mergeFoodItemInList(full)
+            }
+        } catch {
+            loaded = dataStore.foodItems.first { $0.id == itemId }
         }
         item = loaded
         isLoading = false

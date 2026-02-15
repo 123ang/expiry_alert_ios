@@ -718,20 +718,43 @@ struct FoodItemRow: View {
     /// Localized location name (so it changes with app language).
     let locationDisplayName: String
     
+    @ViewBuilder
+    private var itemIconFallback: some View {
+        if let icon = item.categoryIcon, !icon.isEmpty {
+            Text(icon)
+                .font(.title3)
+        } else {
+            Image(systemName: "fork.knife")
+                .foregroundColor(Color(hex: theme.primaryColor))
+        }
+    }
+    
     var body: some View {
         HStack(spacing: 12) {
-            // Icon/emoji
+            // Item photo, category icon, or default
             ZStack {
                 Circle()
                     .fill(Color(hex: theme.primaryColor).opacity(0.15))
                     .frame(width: 44, height: 44)
                 
-                if let icon = item.categoryIcon, !icon.isEmpty {
-                    Text(icon)
-                        .font(.title3)
+                if let imageUrl = item.imageUrl, !imageUrl.isEmpty,
+                   let url = URL(string: imageUrl.secureImageURLString) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        case .failure, .empty:
+                            itemIconFallback
+                        @unknown default:
+                            itemIconFallback
+                        }
+                    }
+                    .frame(width: 44, height: 44)
+                    .clipShape(Circle())
                 } else {
-                    Image(systemName: "fork.knife")
-                        .foregroundColor(Color(hex: theme.primaryColor))
+                    itemIconFallback
                 }
             }
             

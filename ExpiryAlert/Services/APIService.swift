@@ -278,7 +278,15 @@ class APIService {
         let boundary = UUID().uuidString
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         
-        let safeFilename = filename.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "image.jpg"
+        // Preserve file extension so the server can determine type (fixes 500 when extension was stripped)
+        let safeFilename: String
+        if let lastDot = filename.lastIndex(of: "."), lastDot != filename.startIndex {
+            let base = String(filename[..<lastDot]).addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "image"
+            let ext = String(filename[filename.index(after: lastDot)...])
+            safeFilename = "\(base).\(ext)"
+        } else {
+            safeFilename = filename.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "image.jpg"
+        }
         var body = Data()
         body.append(Data("--\(boundary)\r\n".utf8))
         body.append(Data("Content-Disposition: form-data; name=\"image\"; filename=\"\(safeFilename)\"\r\n".utf8))
@@ -303,7 +311,8 @@ class APIService {
             throw APIError.unauthorized
         }
         
-        guard httpResponse.statusCode == 200 else {
+        // 200 OK or 201 Created both indicate success
+        guard (200...299).contains(httpResponse.statusCode) else {
             let message = parseUploadErrorBody(data) ?? "Upload failed"
             throw APIError.serverError(httpResponse.statusCode, message)
         }

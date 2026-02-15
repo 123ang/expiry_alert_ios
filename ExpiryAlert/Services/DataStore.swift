@@ -503,6 +503,13 @@ class DataStore: ObservableObject {
         foodItems.removeAll { $0.id == id }
     }
     
+    /// Merges a full item (e.g. from single-item fetch) into the list so the list shows updated fields like image_url.
+    func mergeFoodItemInList(_ item: FoodItem) {
+        if let index = foodItems.firstIndex(where: { $0.id == item.id }) {
+            foodItems[index] = item
+        }
+    }
+    
     func logFoodItemEvent(itemId: String, eventType: String, quantity: Int, reason: String? = nil) async throws {
         _ = try await APIService.shared.logFoodItemEvent(
             itemId: itemId,
