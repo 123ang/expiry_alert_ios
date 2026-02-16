@@ -89,7 +89,7 @@ struct CalendarScreenView: View {
                                         .contentShape(Rectangle())
                                 }
                                 Spacer()
-                                Text("\(months[Calendar.current.component(.month, from: currentMonth) - 1]) \(Calendar.current.component(.year, from: currentMonth))")
+                                Text("\(months[Calendar.current.component(.month, from: currentMonth) - 1]) \(String(Calendar.current.component(.year, from: currentMonth)))")
                                     .font(.system(size: 17, weight: .semibold))
                                     .foregroundColor(Color(hex: theme.calendarTextColor))
                                 Spacer()

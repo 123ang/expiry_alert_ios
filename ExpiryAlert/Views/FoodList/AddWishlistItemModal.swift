@@ -6,6 +6,7 @@ struct AddWishlistItemModal: View {
     @EnvironmentObject var dataStore: DataStore
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var localizationManager: LocalizationManager
+    @EnvironmentObject var toastManager: ToastManager
     @Environment(\.dismiss) var dismiss
     
     var editingItem: WishItem?
@@ -144,7 +145,7 @@ struct AddWishlistItemModal: View {
             .onAppear {
                 if let item = editingItem {
                     name = item.name
-                    priceText = item.price.map { String(format: "%.2f", $0) } ?? ""
+                    priceText = item.price.map { CurrencyOption.formattedPrice($0, currencyCode: item.currencyCode) } ?? ""
                     selectedCurrencyCode = item.currencyCode ?? UserDefaults.standard.string(forKey: lastWishlistCurrencyKey) ?? "USD"
                     desireLevel = item.desireLevel
                 } else {
@@ -171,6 +172,7 @@ struct AddWishlistItemModal: View {
                         updates["price"] = p
                     }
                     try await dataStore.updateWishItem(id: existing.id, updates: updates)
+                    toastManager.show(localizationManager.t("toast.wishlistItemUpdated"), isError: false)
                 } else {
                     var data: [String: Any] = [
                         "group_id": groupId,
@@ -183,12 +185,14 @@ struct AddWishlistItemModal: View {
                         data["price"] = p
                     }
                     try await dataStore.createWishItem(data)
+                    toastManager.show(localizationManager.t("toast.wishlistItemAdded"), isError: false)
                 }
                 UserDefaults.standard.set(selectedCurrencyCode, forKey: lastWishlistCurrencyKey)
                 onSaved?()
                 dismiss()
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
+                toastManager.show(errorMessage ?? error.localizedDescription, isError: true)
             }
             isSaving = false
         }

@@ -228,7 +228,6 @@ class DataStore: ObservableObject {
     func toggleLocationSelection(id: String) {
         let fridgeIds = fridgeVariantIds
         let idsToToggle: Set<String> = fridgeIds.contains(id) ? fridgeIds : [id]
-        let allIds = Set(locations.map(\.id))
         if selectedLocationIds.isEmpty {
             selectedLocationIds = idsToToggle
         } else {

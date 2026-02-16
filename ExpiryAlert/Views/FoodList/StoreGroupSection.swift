@@ -1,20 +1,29 @@
 import SwiftUI
 
 /// Collapsible section grouped by store (where to buy). Store name is the section header;
-/// "Undecided" is used when whereToBuy is nil/empty. Keeps shopping list scannable by location.
+/// Unbought items first (reorderable), then bought items at bottom.
 struct StoreGroupSection<RowContent: View>: View {
     @EnvironmentObject var themeManager: ThemeManager
 
     let storeName: String
     let items: [ShoppingItem]
     @Binding var isExpanded: Bool
+    var onMoveUnbought: ((IndexSet, Int) -> Void)?
     @ViewBuilder let rowContent: (ShoppingItem) -> RowContent
 
     private var theme: AppTheme { themeManager.currentTheme }
+    private var unboughtItems: [ShoppingItem] { items.filter { !$0.isPurchased } }
+    private var boughtItems: [ShoppingItem] { items.filter { $0.isPurchased } }
+
+    private var unboughtRows: some View {
+        ForEach(unboughtItems) { item in rowContent(item) }
+            .onMove { source, dest in onMoveUnbought?(source, dest) }
+    }
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
-            ForEach(items) { item in
+            unboughtRows
+            ForEach(boughtItems) { item in
                 rowContent(item)
             }
         } label: {

@@ -4,6 +4,7 @@ struct AddShoppingItemModal: View {
     @EnvironmentObject var dataStore: DataStore
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var localizationManager: LocalizationManager
+    @EnvironmentObject var toastManager: ToastManager
     @Environment(\.dismiss) var dismiss
 
     /// When set, modal is in edit mode; otherwise create.
@@ -161,9 +162,11 @@ struct AddShoppingItemModal: View {
                     let wtb = whereToBuy.trimmingCharacters(in: .whitespaces)
                     updates["where_to_buy"] = wtb.isEmpty ? NSNull() : wtb
                     try await dataStore.updateShoppingItem(id: item.id, updates: updates)
+                    toastManager.show(localizationManager.t("toast.shoppingItemUpdated"), isError: false)
                 } else {
                     guard let groupId = dataStore.activeGroupId else {
                         errorMessage = "No group selected."
+                        toastManager.show(errorMessage ?? "No group selected.", isError: true)
                         isSaving = false
                         return
                     }
@@ -177,11 +180,13 @@ struct AddShoppingItemModal: View {
                         data["where_to_buy"] = whereToBuy.trimmingCharacters(in: .whitespaces)
                     }
                     try await dataStore.createShoppingItem(data)
+                    toastManager.show(localizationManager.t("toast.shoppingItemAdded"), isError: false)
                 }
                 onSaved?()
                 dismiss()
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
+                toastManager.show(errorMessage ?? error.localizedDescription, isError: true)
             }
             isSaving = false
         }

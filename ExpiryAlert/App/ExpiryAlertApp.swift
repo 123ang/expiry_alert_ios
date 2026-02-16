@@ -7,6 +7,7 @@ struct ExpiryAlertApp: App {
     @StateObject private var localizationManager = LocalizationManager()
     @StateObject private var dataStore = DataStore()
     @StateObject private var notificationService = NotificationService()
+    @StateObject private var toastManager = ToastManager()
     
     init() {
         // Larger cache for item thumbnails so list and detail can reuse loaded images
@@ -23,6 +24,7 @@ struct ExpiryAlertApp: App {
                 .environmentObject(localizationManager)
                 .environmentObject(dataStore)
                 .environmentObject(notificationService)
+                .environmentObject(toastManager)
                 .onAppear {
                     dataStore.configure(authViewModel: authViewModel)
                 }

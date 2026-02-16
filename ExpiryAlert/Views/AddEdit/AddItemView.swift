@@ -5,6 +5,7 @@ struct AddItemView: View {
     @EnvironmentObject var dataStore: DataStore
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var localizationManager: LocalizationManager
+    @EnvironmentObject var toastManager: ToastManager
     @Environment(\.dismiss) var dismiss
     
     var prefilledDate: Date?
@@ -330,15 +331,21 @@ struct AddItemView: View {
                 
                 if let editItem = editingItem {
                     try await dataStore.updateFoodItem(id: editItem.id, updates: itemData)
+                    toastManager.show(localizationManager.t("toast.itemUpdated"), isError: false)
                 } else {
                     let created = try await dataStore.createFoodItem(itemData)
                     onSavedInventoryItemId?(created.id)
+                    if prefilledName != nil {
+                        toastManager.show(localizationManager.t("toast.addedToInventory"), isError: false)
+                    } else {
+                        toastManager.show(localizationManager.t("toast.itemAdded"), isError: false)
+                    }
                 }
-                
                 dismiss()
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
                 showError = true
+                toastManager.show(errorMessage, isError: true)
             }
             isSaving = false
         }

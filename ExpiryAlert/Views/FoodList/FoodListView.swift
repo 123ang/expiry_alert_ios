@@ -4,6 +4,7 @@ struct FoodListView: View {
     @EnvironmentObject var dataStore: DataStore
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var localizationManager: LocalizationManager
+    @EnvironmentObject var toastManager: ToastManager
 
     @State private var listMode: ListMode = .shopping
     @State private var showAddShoppingModal = false
@@ -27,6 +28,10 @@ struct FoodListView: View {
 
     private static let lastWishlistCurrencyKey = "lastWishlistCurrencyCode"
     private static let wishlistFiltersCollapsedKey = "wishlistFiltersCollapsed"
+    private static func shoppingUnboughtOrderKey(groupId: String?) -> String {
+        "shopping_unbought_order_\(groupId ?? "")"
+    }
+    @State private var shoppingUnboughtOrder: [String] = []
 
     private var purchasedShoppingItems: [ShoppingItem] {
         visibleShoppingItems.filter { $0.isPurchased }
@@ -61,10 +66,24 @@ struct FoodListView: View {
         return list
     }
 
-    /// Group by store (where to buy); active items first within each group for scannable list.
+    /// Unbought items sorted by custom order (top); bought items at bottom.
+    private func sortUnboughtThenBought(_ items: [ShoppingItem]) -> [ShoppingItem] {
+        let unbought = items.filter { !$0.isPurchased }
+        let bought = items.filter { $0.isPurchased }
+        let order = shoppingUnboughtOrder
+        let sortedUnbought = unbought.sorted { a, b in
+            let ia = order.firstIndex(of: a.id) ?? Int.max
+            let ib = order.firstIndex(of: b.id) ?? Int.max
+            if ia != ib { return ia < ib }
+            return unbought.firstIndex(where: { $0.id == a.id })! < unbought.firstIndex(where: { $0.id == b.id })!
+        }
+        return sortedUnbought + bought
+    }
+
+    /// Group by store (where to buy); unbought first (custom order), then bought in each group.
     private var shoppingStoreGroups: [(key: String, items: [ShoppingItem])] {
         let keyed = Dictionary(grouping: filteredShoppingItems) { storeDisplayKey(for: $0) }
-        return keyed.map { (key: $0.key, items: $0.value.sorted { !$0.isPurchased && $1.isPurchased }) }
+        return keyed.map { (key: $0.key, items: sortUnboughtThenBought($0.value)) }
             .sorted { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }
     }
 
@@ -93,6 +112,63 @@ struct FoodListView: View {
         return localizationManager.t("list.whereToBuyUndecided")
     }
 
+    private func moveUnboughtInSection(sectionUnbought: [ShoppingItem], from source: IndexSet, to destination: Int) {
+        var reordered = sectionUnbought
+        reordered.move(fromOffsets: source, toOffset: destination)
+        let reorderedIds = reordered.map(\.id)
+        let idsSet = Set(reorderedIds)
+        var newOrder = shoppingUnboughtOrder.filter { !idsSet.contains($0) }
+        let originalIndices = reorderedIds.compactMap { shoppingUnboughtOrder.firstIndex(of: $0) }
+        let insertIndex = originalIndices.min() ?? newOrder.count
+        newOrder.insert(contentsOf: reorderedIds, at: min(insertIndex, newOrder.count))
+        shoppingUnboughtOrder = newOrder
+        let key = Self.shoppingUnboughtOrderKey(groupId: dataStore.activeGroupId)
+        UserDefaults.standard.set(newOrder, forKey: key)
+    }
+
+    private func loadShoppingUnboughtOrder() {
+        let gid = dataStore.activeGroupId
+        let key = Self.shoppingUnboughtOrderKey(groupId: gid)
+        let saved = UserDefaults.standard.stringArray(forKey: key) ?? []
+        let currentIds = visibleShoppingItems.filter { !$0.isPurchased }.map(\.id)
+        let merged = saved.filter { currentIds.contains($0) } + currentIds.filter { !saved.contains($0) }
+        shoppingUnboughtOrder = merged
+        if merged != saved { UserDefaults.standard.set(merged, forKey: key) }
+    }
+
+    @ViewBuilder
+    private func shoppingRow(for item: ShoppingItem) -> some View {
+        ShoppingRow(
+            item: item,
+            categoryDisplay: categoryDisplayName(categoryId: item.categoryId),
+            whereToBuyDisplay: whereToBuyDisplay(item: item),
+            onToggle: { Task { try? await dataStore.toggleShoppingItem(id: item.id) } },
+            onDelete: { Task { try? await dataStore.deleteShoppingItem(id: item.id) } },
+            onEdit: { shoppingItemToEdit = item; showAddShoppingModal = true },
+            onAddToInventory: { shoppingItemForInventory = item; showAddToInventorySheet = true }
+        )
+        .environmentObject(themeManager)
+        .environmentObject(localizationManager)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) {
+                Task { try? await dataStore.deleteShoppingItem(id: item.id) }
+            } label: { Label(localizationManager.t("action.delete"), systemImage: "trash") }
+        }
+        .swipeActions(edge: .leading) {
+            if item.isPurchased && item.movedToInventory != true {
+                Button {
+                    shoppingItemForInventory = item
+                    showAddToInventorySheet = true
+                } label: { Label(localizationManager.t("list.addToInventory"), systemImage: "square.and.arrow.down") }
+            } else {
+                Button {
+                    shoppingItemToEdit = item
+                    showAddShoppingModal = true
+                } label: { Label(localizationManager.t("common.edit"), systemImage: "pencil") }
+            }
+        }
+    }
+
     /// Wishlist sorted by desire level descending for quick prioritization.
     private var sortedWishItems: [WishItem] {
         dataStore.wishItems.sorted { $0.desireLevel > $1.desireLevel }
@@ -104,15 +180,14 @@ struct FoodListView: View {
         return sortedWishItems.filter { $0.desireLevel == level }
     }
 
-    /// Sum of prices for filtered wishlist items (no currency conversion; for display only).
-    private var wishlistTotalAmount: Double {
-        filteredWishItems.compactMap(\.price).reduce(0, +)
-    }
-
-    /// Currency symbol for total display (user's last-used wishlist currency).
-    private var wishlistTotalCurrencySymbol: String {
-        let code = UserDefaults.standard.string(forKey: Self.lastWishlistCurrencyKey) ?? "USD"
-        return CurrencyOption.symbol(for: code)
+    /// Totals grouped by currency (so we don't add different currencies together).
+    private var wishlistTotalsByCurrency: [(currencyCode: String, amount: Double)] {
+        let grouped = Dictionary(grouping: filteredWishItems) { item in (item.currencyCode ?? "USD").uppercased() }
+        return grouped.compactMap { code, items in
+            let sum = items.compactMap(\.price).reduce(0, +)
+            guard sum > 0 else { return nil }
+            return (currencyCode: code, amount: sum)
+        }.sorted { $0.currencyCode < $1.currencyCode }
     }
 
     private func categoryDisplayName(categoryId: String?) -> String {
@@ -170,12 +245,14 @@ struct FoodListView: View {
                 .environmentObject(dataStore)
                 .environmentObject(themeManager)
                 .environmentObject(localizationManager)
+                .environmentObject(toastManager)
         }
         .sheet(isPresented: $showAddWishlistModal) {
             AddWishlistItemModal(editingItem: wishlistItemToEdit, onSaved: { wishlistItemToEdit = nil })
                 .environmentObject(dataStore)
                 .environmentObject(themeManager)
                 .environmentObject(localizationManager)
+                .environmentObject(toastManager)
         }
         .sheet(isPresented: $showAddToInventorySheet) {
             if let item = shoppingItemForInventory {
@@ -191,11 +268,15 @@ struct FoodListView: View {
                 .environmentObject(dataStore)
                 .environmentObject(themeManager)
                 .environmentObject(localizationManager)
+                .environmentObject(toastManager)
             }
         }
         .onChange(of: showAddWishlistModal) { _, showing in if !showing { wishlistItemToEdit = nil } }
         .onChange(of: showAddShoppingModal) { _, showing in if !showing { shoppingItemToEdit = nil } }
         .onChange(of: showAddToInventorySheet) { _, showing in if !showing { shoppingItemForInventory = nil } }
+        .onAppear { loadShoppingUnboughtOrder() }
+        .onChange(of: dataStore.activeGroupId) { _, _ in loadShoppingUnboughtOrder() }
+        .onChange(of: dataStore.shoppingItems.count) { _, _ in loadShoppingUnboughtOrder() }
     }
 
     // MARK: - Shopping filters + store dropdown
@@ -290,42 +371,30 @@ struct FoodListView: View {
             VStack(spacing: 0) {
                 List {
                     ForEach(shoppingStoreGroups, id: \.key) { group in
-                        StoreGroupSection(
-                            storeName: group.key,
-                            items: group.items,
-                            isExpanded: bindingExpanded(for: group.key)
-                        ) { item in
-                            ShoppingRow(
-                                item: item,
-                                categoryDisplay: categoryDisplayName(categoryId: item.categoryId),
-                                whereToBuyDisplay: whereToBuyDisplay(item: item),
-                                onToggle: { Task { try? await dataStore.toggleShoppingItem(id: item.id) } },
-                                onDelete: { Task { try? await dataStore.deleteShoppingItem(id: item.id) } },
-                                onEdit: { shoppingItemToEdit = item; showAddShoppingModal = true },
-                                onAddToInventory: { shoppingItemForInventory = item; showAddToInventorySheet = true }
-                            )
-                            .environmentObject(themeManager)
-                            .environmentObject(localizationManager)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    Task { try? await dataStore.deleteShoppingItem(id: item.id) }
-                                } label: { Label(localizationManager.t("action.delete"), systemImage: "trash") }
+                        let unboughtInGroup = group.items.filter { !$0.isPurchased }
+                        let boughtInGroup = group.items.filter { $0.isPurchased }
+                        Section {
+                            ForEach(unboughtInGroup) { item in
+                                shoppingRow(for: item)
                             }
-                            .swipeActions(edge: .leading) {
-                                if item.isPurchased && item.movedToInventory != true {
-                                    Button {
-                                        shoppingItemForInventory = item
-                                        showAddToInventorySheet = true
-                                    } label: { Label(localizationManager.t("list.addToInventory"), systemImage: "square.and.arrow.down") }
-                                } else {
-                                    Button {
-                                        shoppingItemToEdit = item
-                                        showAddShoppingModal = true
-                                    } label: { Label(localizationManager.t("common.edit"), systemImage: "pencil") }
-                                }
+                            .onMove { from, to in
+                                moveUnboughtInSection(sectionUnbought: unboughtInGroup, from: from, to: to)
+                            }
+                            ForEach(boughtInGroup) { item in
+                                shoppingRow(for: item)
+                            }
+                        } header: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "storefront")
+                                    .font(.subheadline)
+                                    .foregroundColor(Color(hex: theme.subtitleOnCard))
+                                Text(group.key)
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(Color(hex: theme.textColor))
                             }
                         }
-                        .environmentObject(themeManager)
+                        .listRowBackground(Color(hex: theme.cardBackground))
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -434,7 +503,7 @@ struct FoodListView: View {
                         .stroke(Color(hex: theme.borderColor).opacity(0.6), lineWidth: 1)
                 )
 
-                // ——— 2) Amount still needed (prominent card) ———
+                // ——— 2) Amount still needed, by currency (don't mix currencies) ———
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(spacing: 8) {
                         Image(systemName: "banknote.circle.fill")
@@ -445,10 +514,21 @@ struct FoodListView: View {
                             .fontWeight(.medium)
                             .foregroundColor(Color(hex: theme.placeholderColor))
                     }
-                    Text("\(wishlistTotalCurrencySymbol)\(wishlistTotalAmount, specifier: "%.2f")")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(Color(hex: theme.textColor))
+                    if wishlistTotalsByCurrency.isEmpty {
+                        Text("—")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(Color(hex: theme.textColor))
+                    } else {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(wishlistTotalsByCurrency, id: \.currencyCode) { item in
+                                Text("\(CurrencyOption.symbol(for: item.currencyCode))\(CurrencyOption.formattedPrice(item.amount, currencyCode: item.currencyCode))")
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(Color(hex: theme.textColor))
+                            }
+                        }
+                    }
                     Text(localizationManager.t("wishList.amountNeededSubtitle"))
                         .font(.caption)
                         .foregroundColor(Color(hex: theme.subtitleOnCard))

@@ -20,7 +20,7 @@ struct WishlistRow: View {
                     .fontWeight(.semibold)
                     .foregroundColor(Color(hex: theme.textColor))
                 if let price = item.price {
-                    Text("\(item.currencySymbol)\(String(format: "%.2f", price))")
+                    Text("\(item.currencySymbol)\(CurrencyOption.formattedPrice(price, currencyCode: item.currencyCode))")
                         .font(.subheadline)
                         .foregroundColor(Color(hex: theme.subtitleOnCard))
                 }

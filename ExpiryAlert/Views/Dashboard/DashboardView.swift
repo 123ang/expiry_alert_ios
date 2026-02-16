@@ -12,8 +12,10 @@ struct DashboardView: View {
     @State private var selectedCategoryId: String?
     @State private var selectedLocationId: String?
     @State private var statusSheet: StatusSheetType?
+    @State private var foodItemOrder: [String] = []
     
     private var theme: AppTheme { themeManager.currentTheme }
+    private static func foodItemOrderKey(groupId: String?) -> String { "food_item_order_\(groupId ?? "")" }
     
     enum StatusSheetType: Identifiable {
         case inDate
@@ -52,6 +54,34 @@ struct DashboardView: View {
             }
             return items.filter { $0.locationId == id }
         }
+    }
+
+    private var sortedFilteredFoodItems: [FoodItem] {
+        let items = filteredFoodItems
+        let order = foodItemOrder
+        return items.sorted { a, b in
+            let ia = order.firstIndex(of: a.id) ?? Int.max
+            let ib = order.firstIndex(of: b.id) ?? Int.max
+            if ia != ib { return ia < ib }
+            return items.firstIndex(where: { $0.id == a.id })! < items.firstIndex(where: { $0.id == b.id })!
+        }
+    }
+
+    private func loadFoodItemOrder() {
+        let gid = dataStore.activeGroupId
+        let key = Self.foodItemOrderKey(groupId: gid)
+        let saved = UserDefaults.standard.stringArray(forKey: key) ?? []
+        let currentIds = dataStore.activeFoodItems.map(\.id)
+        let merged = saved.filter { currentIds.contains($0) } + currentIds.filter { !saved.contains($0) }
+        foodItemOrder = merged
+        if merged != saved { UserDefaults.standard.set(merged, forKey: key) }
+    }
+
+    private func moveFoodItem(from source: IndexSet, to destination: Int) {
+        var order = sortedFilteredFoodItems.map(\.id)
+        order.move(fromOffsets: source, toOffset: destination)
+        foodItemOrder = order
+        UserDefaults.standard.set(order, forKey: Self.foodItemOrderKey(groupId: dataStore.activeGroupId))
     }
     
     var body: some View {
@@ -94,6 +124,9 @@ struct DashboardView: View {
                 await dataStore.loadAll()
             }
         }
+        .onAppear { loadFoodItemOrder() }
+        .onChange(of: dataStore.activeGroupId) { _, _ in loadFoodItemOrder() }
+        .onChange(of: dataStore.foodItems.count) { _, _ in loadFoodItemOrder() }
     }
     
     // MARK: - Logo + Title Header
@@ -368,14 +401,21 @@ struct DashboardView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 24)
             } else {
-                VStack(spacing: 8) {
-                    ForEach(filteredFoodItems) { item in
+                List {
+                    ForEach(sortedFilteredFoodItems) { item in
                         NavigationLink(destination: ItemDetailView(itemId: item.id)) {
                             FoodItemRow(item: item, theme: theme, localizationManager: localizationManager, locationDisplayName: localizationManager.getLocationDisplayName(for: item, from: dataStore.displayLocations))
-                                .padding(.vertical, 10)
+                                .padding(.vertical, 6)
                         }
+                        .listRowBackground(Color(hex: theme.cardBackground))
+                        .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
                     }
+                    .onMove(perform: moveFoodItem)
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .scrollDisabled(true)
+                .frame(height: max(120, CGFloat(sortedFilteredFoodItems.count) * 76))
                 .padding(12)
                 .background(Color(hex: theme.cardBackground))
                 .cornerRadius(theme.borderRadius)
@@ -730,6 +770,9 @@ struct FoodItemRow: View {
     
     var body: some View {
         HStack(spacing: 12) {
+            Image(systemName: "line.3.horizontal")
+                .font(.body)
+                .foregroundColor(Color(hex: theme.subtitleOnCard))
             // Item photo, category icon, or default
             ZStack {
                 Circle()

@@ -19,6 +19,11 @@ struct ShoppingRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            if !item.isPurchased {
+                Image(systemName: "line.3.horizontal")
+                    .font(.body)
+                    .foregroundColor(Color(hex: theme.subtitleOnCard))
+            }
             // Large checkbox for easy thumb tap
             Button(action: onToggle) {
                 Image(systemName: item.isPurchased ? "checkmark.circle.fill" : "circle")
@@ -40,7 +45,22 @@ struct ShoppingRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            if item.isPurchased && item.movedToInventory != true {
+            if !item.isPurchased {
+                Button(action: onEdit) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "pencil")
+                            .font(.caption)
+                        Text(localizationManager.t("common.edit"))
+                            .font(.caption)
+                    }
+                    .foregroundColor(Color(hex: theme.primaryColor))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(hex: theme.primaryColor).opacity(0.12))
+                    .cornerRadius(8)
+                }
+                .buttonStyle(PlainButtonStyle())
+            } else if item.movedToInventory != true {
                 Button(action: onAddToInventory) {
                     HStack(spacing: 4) {
                         Image(systemName: "square.and.arrow.down")

@@ -434,8 +434,20 @@ struct CurrencyOption: Identifiable {
     ]
     
     static func symbol(for code: String?) -> String {
-        let c = code ?? "USD"
+        let c = (code ?? "USD").uppercased()
         return all.first(where: { $0.code == c })?.symbol ?? "$"
+    }
+    
+    /// Currencies that use no minor units (show whole numbers only, e.g. JPY 10000 not 10000.00).
+    private static let noDecimalCodes: Set<String> = ["JPY", "KRW", "VND", "TWD", "IDR", "HUF", "CLP"]
+    
+    /// Formatted price for display: no decimals for JPY/KRW/VND/etc., two decimals otherwise.
+    static func formattedPrice(_ price: Double, currencyCode: String?) -> String {
+        let code = (currencyCode ?? "USD").uppercased()
+        if noDecimalCodes.contains(code) {
+            return String(format: "%.0f", price)
+        }
+        return String(format: "%.2f", price)
     }
 }
 
