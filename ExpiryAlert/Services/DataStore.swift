@@ -7,14 +7,6 @@ private let activeGroupIdKey = "active_group_id"
 private let hasAppliedInitialCategorySelectionKey = "hasAppliedInitialCategorySelection"
 private let hasAppliedInitialLocationSelectionKey = "hasAppliedInitialLocationSelection"
 
-/// Translation keys for categories selected by default on first install (Dairy, Vegetables, Meat, Snacks).
-private let defaultSelectedCategoryTranslationKeys: Set<String> = [
-    "defaultCategory.dairy",
-    "defaultCategory.vegetables",
-    "defaultCategory.meatSeafood",
-    "defaultCategory.snacks"
-]
-
 @MainActor
 class DataStore: ObservableObject {
     // MARK: - Published State
@@ -133,19 +125,10 @@ class DataStore: ObservableObject {
         selectedCategoryIds = Set(displayCategories.filter { Self.isCustomizationCategory($0) }.map(\.id))
     }
     
-    /// On first install, set selected categories to Dairy, Vegetables, Meat, Snacks only. Idempotent after first run.
+    /// On first install, select all categories so Add Item and pickers show them. User can manage later in Settings. Idempotent after first run.
     func applyInitialCategorySelectionIfNeeded() {
         guard !UserDefaults.standard.bool(forKey: hasAppliedInitialCategorySelectionKey) else { return }
-        let display = categories.filter { !Self.isDebugCategory($0) }
-        let defaultIds = Set(display.filter { cat in
-            guard let key = cat.translationKey, !key.isEmpty else { return false }
-            return defaultSelectedCategoryTranslationKeys.contains(key)
-        }.map(\.id))
-        if defaultIds.isEmpty {
-            selectedCategoryIds = Set(display.map(\.id))
-        } else {
-            selectedCategoryIds = defaultIds
-        }
+        selectedCategoryIds = Set(displayCategories.map(\.id))
         UserDefaults.standard.set(true, forKey: hasAppliedInitialCategorySelectionKey)
     }
     
@@ -314,6 +297,7 @@ class DataStore: ObservableObject {
                 categories = DataStore.mergeDefaultsWithGroup(defaults: dCats, groupItems: gCats)
                 locations = DataStore.mergeDefaultsWithGroup(defaults: dLocs, groupItems: gLocs)
                 applyInitialCategorySelectionIfNeeded()
+                applyInitialLocationSelectionIfNeeded()
                 foodItems = try await items
                 shoppingItems = try await shopping
                 wishItems = try await wishes
@@ -555,6 +539,7 @@ class DataStore: ObservableObject {
     func createCategory(name: String, icon: String?) async throws {
         let cat = try await APIService.shared.createCategory(name: name, icon: icon, groupId: activeGroupId)
         categories.append(cat)
+        selectedCategoryIds = selectedCategoryIds.union([cat.id])
     }
     
     func updateCategory(id: String, name: String?, icon: String?) async throws {
@@ -583,6 +568,7 @@ class DataStore: ObservableObject {
     func createLocation(name: String, icon: String?) async throws {
         let loc = try await APIService.shared.createLocation(name: name, icon: icon, groupId: activeGroupId)
         locations.append(loc)
+        selectedLocationIds = selectedLocationIds.union([loc.id])
     }
     
     func updateLocation(id: String, name: String?, icon: String?) async throws {

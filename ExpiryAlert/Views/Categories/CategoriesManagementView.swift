@@ -391,59 +391,57 @@ struct CategoriesManagementView: View {
     
     private var addEditSheet: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                TextField(localizationManager.t("categoryName"), text: $newName)
-                    .textFieldStyle(ThemedTextFieldStyle(theme: theme))
-                
-                VStack(alignment: .leading) {
-                    Text(localizationManager.t("common.icon"))
-                        .font(.subheadline)
-                        .foregroundColor(Color(hex: theme.textSecondary))
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    // Category name – padded down so it's easy to tap
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(localizationManager.t("categoryName"))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(Color(hex: theme.textSecondary))
+                        TextField(localizationManager.t("categoryName"), text: $newName)
+                            .textFieldStyle(ThemedTextFieldStyle(theme: theme))
+                            .padding(.vertical, 4)
+                    }
+                    .padding(.top, 8)
                     
-                    // Icons from DB seed + extras for custom categories
-                    let emojis = [
-                        // Food & Drinks
-                        "🥬", "🍱", "🍪", "🥤", "🧊", "🥛", "🥩", "🍎", "🥕", "🍞", "🫙", "🧂", "🥫", "🍼",
-                        // Health
-                        "💊", "💉", "🩹", "🩺",
-                        // Personal Care
-                        "🧴", "💄", "💇", "🧼", "🌸", "🪥",
-                        // Home
-                        "🧹", "🧺", "📦", "🔋", "💡", "💨",
-                        // Documents
-                        "🛂", "📇", "🪪", "📋", "📄", "🧾", "📑", "📜", "🎫",
-                        // Pets
-                        "🐕", "🦴",
-                        // Others & extras
-                        "📱", "✏️", "🍕", "🍔", "🌮", "🥗", "🍜", "🥚", "🌽", "🍰", "🍿", "🐟",
-                    ]
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 8) {
-                        ForEach(emojis, id: \.self) { emoji in
-                            Button(action: { newIcon = emoji }) {
-                                Text(emoji)
-                                    .font(.title2)
-                                    .frame(width: 44, height: 44)
-                                    .background(
-                                        newIcon == emoji
-                                        ? Color(hex: theme.primaryColor).opacity(0.2)
-                                        : Color(hex: theme.backgroundColor)
-                                    )
-                                    .cornerRadius(8)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(
-                                                newIcon == emoji ? Color(hex: theme.primaryColor) : Color.clear,
-                                                lineWidth: 2
-                                            )
-                                    )
+                    // Icon grid – scrolls with the sheet
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(localizationManager.t("common.icon"))
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(Color(hex: theme.textSecondary))
+                        
+                        let emojis = categoryIconEmojis
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 8), spacing: 10) {
+                            ForEach(emojis, id: \.self) { emoji in
+                                Button(action: { newIcon = emoji }) {
+                                    Text(emoji)
+                                        .font(.title2)
+                                        .frame(width: 44, height: 44)
+                                        .background(
+                                            newIcon == emoji
+                                            ? Color(hex: theme.primaryColor).opacity(0.2)
+                                            : Color(hex: theme.backgroundColor)
+                                        )
+                                        .cornerRadius(8)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(
+                                                    newIcon == emoji ? Color(hex: theme.primaryColor) : Color.clear,
+                                                    lineWidth: 2
+                                                )
+                                        )
+                                }
+                                .buttonStyle(PlainButtonStyle())
                             }
                         }
                     }
+                    .padding(.bottom, 24)
                 }
-                
-                Spacer()
+                .padding(.horizontal, 20)
             }
-            .padding(20)
+            .background(Color(hex: theme.backgroundColor))
             .navigationTitle(editingCategory != nil ? localizationManager.t("editCategory") : localizationManager.t("addCategory"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -465,5 +463,21 @@ struct CategoriesManagementView: View {
                 }
             }
         }
+    }
+    
+    /// Full list of category icons (expiry-alert relevant). Kept in one place for Add/Edit sheet.
+    private var categoryIconEmojis: [String] {
+        [
+            "🥬", "🥕", "🍎", "🍅", "🥒", "🫑", "🥦", "🍇", "🍓", "🍑", "🍒", "🥭", "🍍", "🫐", "🥝", "🍋", "🍊", "🍉", "🫒", "🥑", "🧅", "🥔", "🍄", "🌽", "🌶️", "🫛", "🥜",
+            "🥛", "🧀", "🥩", "🍗", "🥓", "🐟", "🦐", "🥚", "🧈", "🍣", "🦑", "🥖",
+            "🍦", "🍰", "🧁", "🍩", "🍪", "🍫", "🍬", "🍿", "🍞", "🥐", "🍕", "🍔", "🌮", "🥗", "🍜", "🍱", "🍲", "🥣", "🧆", "🫕", "🥙", "🍳", "🥪", "🌯", "🫔", "🥟", "🍙", "🍘", "🥠", "🍢", "🥮", "🎂", "🧇", "🥞", "🫓",
+            "🫙", "🧂", "🥫", "🍼", "🍯", "☕", "🍵", "🥤", "🧊", "🍶", "🍷", "🍺", "🧃", "🧉", "🍹", "🫖",
+            "💊", "💉", "🩹", "🩺", "🩸", "🧬", "🩻", "🦷", "👁️",
+            "🧴", "💄", "💇", "🧼", "🌸", "🪥", "🪒", "🧽", "🪮", "💅",
+            "🧹", "🧺", "📦", "🔋", "💡", "💨", "🗑️", "🧻", "🪣", "🪤", "🧲", "🔌",
+            "🛂", "📇", "🪪", "📋", "📄", "🧾", "📑", "📜", "🎫", "📁", "✏️", "📌", "📎", "🗂️", "📂", "💼",
+            "🐕", "🐈", "🦴", "🐠", "🐦", "🐹", "🐰", "🦜", "🐢", "🐁",
+            "📱", "🖥️", "⌨️", "⚠️", "🔔", "⏰", "🗓️", "📅", "🏷️", "🔖",
+        ]
     }
 }

@@ -48,6 +48,14 @@ struct AppTheme: Equatable {
         useWhiteCalendarText || Self.luminance(ofHex: cardBackground) <= 0.5
     }
     
+    /// Title color for modal sheets (Choose Category, Choose Location). Bright (theme textColor) for Dark Brown, Dark Gold, Black; dark grey for other themes so the title is visible on light backgrounds.
+    var sheetTitleColor: String {
+        switch name {
+        case "Black", "Dark Brown", "Dark Gold": return textColor
+        default: return "#374151"
+        }
+    }
+    
     /// Black, Dark Brown, and Dark Gold always use white calendar text.
     private var useWhiteCalendarText: Bool {
         switch name {

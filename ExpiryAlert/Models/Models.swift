@@ -281,11 +281,35 @@ struct FoodItem: Codable, Identifiable {
         case locationTranslationKey = "location_translation_key"
     }
     
+    /// Expiry date as calendar day in the user's timezone (yyyy-MM-dd). Handles API returning ISO8601 so we don't show the previous day.
+    private var expiryDateAsLocalDay: String? {
+        guard let raw = expiryDate, !raw.isEmpty else { return nil }
+        let calendar = Calendar.current
+        let date: Date?
+        if raw.contains("T") {
+            let isoWithFrac = ISO8601DateFormatter()
+            isoWithFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let isoPlain = ISO8601DateFormatter()
+            isoPlain.formatOptions = [.withInternetDateTime]
+            date = isoWithFrac.date(from: raw) ?? isoPlain.date(from: raw)
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            formatter.timeZone = calendar.timeZone
+            date = formatter.date(from: String(raw.prefix(10)))
+        }
+        guard let d = date else { return String(raw.prefix(10)) }
+        let comps = calendar.dateComponents([.year, .month, .day], from: d)
+        guard let y = comps.year, let m = comps.month, let day = comps.day else { return String(raw.prefix(10)) }
+        return String(format: "%04d-%02d-%02d", y, m, day)
+    }
+    
     var daysUntilExpiry: Int? {
-        guard let expiryDate = expiryDate else { return nil }
+        guard let localDay = expiryDateAsLocalDay else { return nil }
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
-        guard let date = formatter.date(from: String(expiryDate.prefix(10))) else { return nil }
+        formatter.timeZone = Calendar.current.timeZone
+        guard let date = formatter.date(from: localDay) else { return nil }
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let expiry = calendar.startOfDay(for: date)
@@ -295,13 +319,14 @@ struct FoodItem: Codable, Identifiable {
     var status: FoodItemStatus {
         guard let days = daysUntilExpiry else { return .fresh }
         if days < 0 { return .expired }
+        if days == 0 { return .expired }
         if days <= 5 { return .expiringSoon }
         return .fresh
     }
     
     var expiryDateFormatted: String {
-        guard let expiryDate = expiryDate else { return "N/A" }
-        return String(expiryDate.prefix(10))
+        guard let localDay = expiryDateAsLocalDay else { return "N/A" }
+        return localDay
     }
 }
 

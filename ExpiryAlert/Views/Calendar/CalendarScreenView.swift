@@ -177,7 +177,7 @@ struct CalendarScreenView: View {
                                 VStack(spacing: 8) {
                                     ForEach(itemsForSelectedDate) { item in
                                         NavigationLink(destination: ItemDetailView(itemId: item.id)) {
-                                            FoodItemRow(item: item, theme: theme, localizationManager: localizationManager, locationDisplayName: localizationManager.getLocationDisplayName(for: item, from: dataStore.displayLocations))
+                                            FoodItemRow(item: item, theme: theme, localizationManager: localizationManager)
                                                 .padding(.vertical, 10)
                                         }
                                     }

@@ -103,7 +103,7 @@ struct DashboardView: View {
                     myItemsSection
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 100)
+                .padding(.bottom, 88)
             }
             .refreshable {
                 await dataStore.loadAll()
@@ -283,7 +283,7 @@ struct DashboardView: View {
                     } else {
                         ForEach(items) { item in
                             NavigationLink(destination: ItemDetailView(itemId: item.id)) {
-                                FoodItemRow(item: item, theme: theme, localizationManager: localizationManager, locationDisplayName: localizationManager.getLocationDisplayName(for: item, from: dataStore.displayLocations))
+                                FoodItemRow(item: item, theme: theme, localizationManager: localizationManager)
                                     .padding(.vertical, 8)
                             }
                             .listRowBackground(Color(hex: theme.cardBackground))
@@ -404,18 +404,18 @@ struct DashboardView: View {
                 List {
                     ForEach(sortedFilteredFoodItems) { item in
                         NavigationLink(destination: ItemDetailView(itemId: item.id)) {
-                            FoodItemRow(item: item, theme: theme, localizationManager: localizationManager, locationDisplayName: localizationManager.getLocationDisplayName(for: item, from: dataStore.displayLocations))
+                            FoodItemRow(item: item, theme: theme, localizationManager: localizationManager)
                                 .padding(.vertical, 6)
                         }
                         .listRowBackground(Color(hex: theme.cardBackground))
-                        .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 12))
+                        .listRowInsets(EdgeInsets(top: 4, leading: 12, bottom: 4, trailing: 16))
                     }
                     .onMove(perform: moveFoodItem)
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .scrollDisabled(true)
-                .frame(height: max(120, CGFloat(sortedFilteredFoodItems.count) * 76))
+                .frame(height: max(120, CGFloat(sortedFilteredFoodItems.count) * 84 + 8))
                 .padding(12)
                 .background(Color(hex: theme.cardBackground))
                 .cornerRadius(theme.borderRadius)
@@ -754,8 +754,6 @@ struct FoodItemRow: View {
     let item: FoodItem
     let theme: AppTheme
     let localizationManager: LocalizationManager
-    /// Localized location name (so it changes with app language).
-    let locationDisplayName: String
     
     @ViewBuilder
     private var itemIconFallback: some View {
@@ -769,10 +767,11 @@ struct FoodItemRow: View {
     }
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             Image(systemName: "line.3.horizontal")
-                .font(.body)
+                .font(.system(size: 16))
                 .foregroundColor(Color(hex: theme.subtitleOnCard))
+                .frame(width: 24, alignment: .center)
             // Item photo, category icon, or default
             ZStack {
                 Circle()
@@ -800,13 +799,14 @@ struct FoodItemRow: View {
                 }
             }
             
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(item.name)
                     .font(.subheadline)
-                    .fontWeight(.medium)
+                    .fontWeight(.semibold)
                     .foregroundColor(Color(hex: theme.textColor))
+                    .lineLimit(1)
                 
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     if let days = item.daysUntilExpiry {
                         Label(
                             days < 0
@@ -819,22 +819,18 @@ struct FoodItemRow: View {
                         .font(.caption)
                         .foregroundColor(Color(hex: item.status.color))
                     }
-                    
-                    if !locationDisplayName.isEmpty {
-                        Text(locationDisplayName)
-                            .font(.caption)
-                            .foregroundColor(Color(hex: theme.subtitleOnCard))
-                    }
                 }
             }
-            
-            Spacer()
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
             
             Text("x\(item.quantity)")
-                .font(.caption)
+                .font(.subheadline)
                 .fontWeight(.medium)
                 .foregroundColor(Color(hex: theme.subtitleOnCard))
+                .layoutPriority(1)
+                .fixedSize(horizontal: true, vertical: false)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
     }
 }

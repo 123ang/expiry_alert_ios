@@ -144,6 +144,11 @@ struct ItemDetailView: View {
                 AddItemView(editingItem: item)
             }
         }
+        .onChange(of: showEditSheet) { _, isShowing in
+            if !isShowing {
+                item = dataStore.foodItems.first(where: { $0.id == itemId })
+            }
+        }
         .alert(localizationManager.t("alert.deleteTitle"), isPresented: $showDeleteAlert) {
             Button(localizationManager.t("common.cancel"), role: .cancel) {}
             Button(localizationManager.t("action.delete"), role: .destructive) { deleteItem() }

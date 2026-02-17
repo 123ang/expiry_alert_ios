@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Single shopping list row: large checkbox, name (bold), subtext "Category • Where to buy".
+/// Single shopping list row: large checkbox, name (bold), subtext category only (store shown as section header).
 /// When checked: strikethrough and dim. No inline trash; use swipe for Delete / Edit or Add to Inventory.
 /// Min height 56pt for thumb-friendly tap target.
 struct ShoppingRow: View {
@@ -38,7 +38,7 @@ struct ShoppingRow: View {
                     .fontWeight(.semibold)
                     .strikethrough(item.isPurchased)
                     .foregroundColor(item.isPurchased ? Color(hex: theme.subtitleOnCard).opacity(0.9) : Color(hex: theme.textColor))
-                Text("\(categoryDisplay) • \(whereToBuyDisplay)")
+                Text(categoryDisplay)
                     .font(.caption)
                     .foregroundColor(item.isPurchased ? Color(hex: theme.subtitleOnCard).opacity(0.8) : Color(hex: theme.subtitleOnCard))
                     .strikethrough(item.isPurchased)

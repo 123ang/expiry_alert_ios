@@ -28,6 +28,7 @@ struct AddItemView: View {
     @State private var errorMessage = ""
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
+    @State private var showCamera = false
     @State private var categorySearchText = ""
     @State private var locationSearchText = ""
     @State private var showCategoryPicker = false
@@ -172,7 +173,7 @@ struct AddItemView: View {
     }
     
     private var addItemPhotoSection: some View {
-        VStack {
+        VStack(spacing: 12) {
             if let image = selectedImage {
                 Image(uiImage: image)
                     .resizable()
@@ -180,18 +181,39 @@ struct AddItemView: View {
                     .frame(height: 200)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
             }
-            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                HStack {
-                    Image(systemName: "camera.fill")
-                    Text(selectedImage == nil
-                         ? localizationManager.t("image.addPhoto")
-                         : localizationManager.t("image.changePhoto"))
+            HStack(spacing: 12) {
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                    HStack {
+                        Image(systemName: "photo.on.rectangle.angled")
+                        Text(localizationManager.t("image.chooseFromGallery"))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color(hex: theme.primaryColor))
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color(hex: theme.primaryColor))
-                .foregroundColor(.white)
-                .cornerRadius(8)
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    Button {
+                        showCamera = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "camera.fill")
+                            Text(localizationManager.t("image.takePhoto"))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color(hex: theme.primaryColor))
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                    }
+                }
+            }
+            .fullScreenCover(isPresented: $showCamera) {
+                CameraPickerView { image in
+                    selectedPhotoItem = nil
+                    selectedImage = image
+                }
             }
         }
     }
@@ -262,8 +284,11 @@ struct AddItemView: View {
     }
     
     private func setupInitialValues() {
+        let cal = Calendar.current
         if let date = prefilledDate {
             expiryDate = date
+        } else if editingItem == nil {
+            expiryDate = Date()
         }
         if let name = prefilledName, !name.isEmpty {
             itemName = name
@@ -277,11 +302,10 @@ struct AddItemView: View {
             selectedCategoryId = item.categoryId
             selectedLocationId = item.locationId
             notes = item.notes ?? ""
-            if let dateStr = item.expiryDate {
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd"
-                expiryDate = formatter.date(from: String(dateStr.prefix(10))) ?? Date()
-            }
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            formatter.timeZone = cal.timeZone
+            expiryDate = formatter.date(from: item.expiryDateFormatted) ?? Date()
         }
     }
     
@@ -303,8 +327,17 @@ struct AddItemView: View {
         }
         
         isSaving = true
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
+        let cal = Calendar.current
+        let comps = cal.dateComponents([.year, .month, .day], from: expiryDate)
+        let expiryDateString: String
+        if let y = comps.year, let m = comps.month, let d = comps.day {
+            expiryDateString = String(format: "%04d-%02d-%02d", y, m, d)
+        } else {
+            let f = DateFormatter()
+            f.dateFormat = "yyyy-MM-dd"
+            f.timeZone = cal.timeZone
+            expiryDateString = f.string(from: expiryDate)
+        }
         
         Task {
             do {
@@ -312,7 +345,7 @@ struct AddItemView: View {
                     "name": itemName.trimmingCharacters(in: .whitespaces),
                     "quantity": Int(quantity) ?? 1,
                     "group_id": groupId,
-                    "expiry_date": formatter.string(from: expiryDate)
+                    "expiry_date": expiryDateString
                 ]
                 if let catId = selectedCategoryId { itemData["category_id"] = catId }
                 if let locId = selectedLocationId { itemData["location_id"] = locId }
@@ -527,9 +560,13 @@ struct CategoryPickerSheet: View {
                     expandedSections = Set(categoriesBySection.map(\.section))
                 }
             }
-            .navigationTitle(localizationManager.t("categories.chooseTitle"))
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(hex: theme.backgroundColor), for: .navigationBar)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(localizationManager.t("categories.chooseTitle"))
+                        .font(.headline)
+                        .foregroundColor(Color(hex: theme.sheetTitleColor))
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         onDismiss()
@@ -757,9 +794,13 @@ struct LocationPickerSheet: View {
                     expandedSections = Set(locationsBySection.map(\.section))
                 }
             }
-            .navigationTitle(localizationManager.t("locations.chooseTitle"))
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(hex: theme.backgroundColor), for: .navigationBar)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text(localizationManager.t("locations.chooseTitle"))
+                        .font(.headline)
+                        .foregroundColor(Color(hex: theme.sheetTitleColor))
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         onDismiss()
