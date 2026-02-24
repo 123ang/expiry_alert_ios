@@ -43,10 +43,8 @@ struct AddWishlistItemModal: View {
                                         UserDefaults.standard.set(currency.code, forKey: lastWishlistCurrencyKey)
                                     }, label: {
                                         HStack {
-                                            Text(currency.symbol)
-                                            Text(currency.name)
-                                            Text("(\(currency.code))")
-                                                .foregroundColor(Color(hex: theme.subtitleOnCard))
+                                            Text("\(currency.symbol) (\(currency.name))")
+                                            Spacer(minLength: 8)
                                             if selectedCurrencyCode == currency.code {
                                                 Image(systemName: "checkmark")
                                                     .foregroundColor(Color(hex: theme.primaryColor))

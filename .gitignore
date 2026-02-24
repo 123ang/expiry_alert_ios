@@ -1,2 +1,4 @@
-ExpiryAlert.xcodeproj/project.xcworkspace/xcuserdata/kevinsoon.xcuserdatad/UserInterfaceState.xcuserstate
+# System & IDE
 .DS_Store
+xcuserdata/
+*.xcuserstate

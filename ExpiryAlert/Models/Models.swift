@@ -448,7 +448,7 @@ struct CurrencyOption: Identifiable {
         CurrencyOption(code: "NOK", symbol: "kr", name: "Norwegian Krone"),
         CurrencyOption(code: "DKK", symbol: "kr", name: "Danish Krone"),
         CurrencyOption(code: "NZD", symbol: "NZ$", name: "New Zealand Dollar"),
-        CurrencyOption(code: "TWD", symbol: "NT$", name: "Taiwan Dollar"),
+        CurrencyOption(code: "TWD", symbol: "NT$", name: "New Taiwan Dollar"),
         CurrencyOption(code: "TRY", symbol: "₺", name: "Turkish Lira"),
         CurrencyOption(code: "SAR", symbol: "﷼", name: "Saudi Riyal"),
         CurrencyOption(code: "ILS", symbol: "₪", name: "Israeli Shekel"),

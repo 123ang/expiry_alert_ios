@@ -107,6 +107,12 @@ Since this is source-only, to create a proper `.xcodeproj`:
 - Device-bound refresh tokens
 - HTTPS enforced in production (ATS configured)
 
+## Project layout
+
+- `ExpiryAlert/` – iOS app source (SwiftUI)
+- `API_REFERENCE.md` – API endpoints and auth (for app development)
+- `Docs/` – Backend-related docs (database seed, schema changes, reports)
+
 ## Backend
 
 The backend (`expiry-alert-api`) provides:

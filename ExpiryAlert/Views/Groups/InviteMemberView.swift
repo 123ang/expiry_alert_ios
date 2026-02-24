@@ -157,11 +157,11 @@ struct InviteMemberView: View {
                     .padding(16)
                 }
             }
-            .navigationTitle("Invite Member")
+            .navigationTitle(localizationManager.t("groupDetail.inviteMemberTitle"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") { dismiss() }
+                    Button(localizationManager.t("common.close")) { dismiss() }
                         .foregroundColor(Color(hex: theme.primaryColor))
                 }
             }

@@ -11,6 +11,9 @@ struct AccountSettingsView: View {
     @State private var confirmPassword: String = ""
     @State private var isChangingPassword = false
     @State private var showLogoutAlert = false
+    @State private var showDeleteAccountFirstAlert = false
+    @State private var showDeleteAccountSecondAlert = false
+    @State private var isDeletingAccount = false
     @State private var errorMessage: String?
     @State private var successMessage: String?
     
@@ -108,6 +111,28 @@ struct AccountSettingsView: View {
                         .cornerRadius(theme.borderRadius)
                     }
                     .buttonStyle(PlainButtonStyle())
+                    
+                    // Delete account
+                    Button(action: { showDeleteAccountFirstAlert = true }) {
+                        HStack(spacing: 10) {
+                            if isDeletingAccount {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: theme.dangerColor)))
+                            } else {
+                                Image(systemName: "person.crop.circle.badge.minus")
+                                    .font(.system(size: 16, weight: .medium))
+                            }
+                            Text(isDeletingAccount ? localizationManager.t("account.deletingAccount") : localizationManager.t("account.deleteAccount"))
+                                .font(.system(size: 16, weight: .semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .foregroundColor(Color(hex: theme.dangerColor))
+                        .background(Color(hex: theme.dangerColor).opacity(0.08))
+                        .cornerRadius(theme.borderRadius)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .disabled(isDeletingAccount)
                 }
                 .padding(20)
             }
@@ -122,6 +147,38 @@ struct AccountSettingsView: View {
         } message: {
             Text(localizationManager.t("account.logOutAlertMessage"))
         }
+        .alert(localizationManager.t("account.deleteAccountConfirmTitle"), isPresented: $showDeleteAccountFirstAlert) {
+            Button(localizationManager.t("common.cancel"), role: .cancel) {}
+            Button(localizationManager.t("account.deleteAccountContinue"), role: .destructive) {
+                showDeleteAccountFirstAlert = false
+                showDeleteAccountSecondAlert = true
+            }
+        } message: {
+            Text(localizationManager.t("account.deleteAccountConfirmMessage"))
+        }
+        .alert(localizationManager.t("account.deleteAccountFinalTitle"), isPresented: $showDeleteAccountSecondAlert) {
+            Button(localizationManager.t("common.cancel"), role: .cancel) {
+                showDeleteAccountSecondAlert = false
+            }
+            Button(localizationManager.t("account.deleteAccountButton"), role: .destructive) {
+                showDeleteAccountSecondAlert = false
+                Task { await performDeleteAccount() }
+            }
+        } message: {
+            Text(localizationManager.t("account.deleteAccountFinalMessage"))
+        }
+    }
+    
+    private func performDeleteAccount() async {
+        isDeletingAccount = true
+        errorMessage = nil
+        do {
+            try await authViewModel.deleteAccount()
+            dismiss()
+        } catch {
+            errorMessage = (error as? APIError)?.errorDescription ?? error.localizedDescription
+        }
+        isDeletingAccount = false
     }
     
     private func messageBanner(icon: String, text: String, color: String) -> some View {

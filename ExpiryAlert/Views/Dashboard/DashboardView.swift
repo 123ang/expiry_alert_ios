@@ -163,7 +163,7 @@ struct DashboardView: View {
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
                                 .foregroundColor(Color(hex: theme.textColor))
-                            Text(localizationManager.t("home.groupSubtitle"))
+                            Text(activeGroupDescription)
                                 .font(.caption)
                                 .foregroundColor(Color(hex: theme.textSecondary))
                         }
@@ -196,12 +196,34 @@ struct DashboardView: View {
         .cornerRadius(16)
     }
     
+    private func isPersonalGroup(_ group: Group) -> Bool {
+        (group.maxMembers ?? 0) == 1
+            || group.name == localizationManager.t("home.personalGroup")
+            || group.name.trimmingCharacters(in: .whitespaces).lowercased() == "personal"
+    }
+    
+    private func displayName(for group: Group) -> String {
+        isPersonalGroup(group) ? localizationManager.t("home.personalGroup") : group.name
+    }
+    
+    private func displayDescription(for group: Group) -> String {
+        isPersonalGroup(group) ? localizationManager.t("home.groupSubtitle") : (group.description ?? localizationManager.t("groups.noDescription"))
+    }
+    
     private var activeGroupName: String {
         if let id = dataStore.activeGroupId,
            let group = dataStore.groups.first(where: { $0.id == id }) {
-            return group.name
+            return displayName(for: group)
         }
         return localizationManager.t("home.personalGroup")
+    }
+    
+    private var activeGroupDescription: String {
+        if let id = dataStore.activeGroupId,
+           let group = dataStore.groups.first(where: { $0.id == id }) {
+            return displayDescription(for: group)
+        }
+        return localizationManager.t("home.groupSubtitle")
     }
     
     private var groupPickerSheet: some View {
@@ -214,7 +236,7 @@ struct DashboardView: View {
                         showGroupPicker = false
                     }) {
                         HStack {
-                            Text(group.name)
+                            Text(displayName(for: group))
                                 .font(.body)
                                 .foregroundColor(Color(hex: theme.textColor))
                             if group.id == dataStore.activeGroupId {

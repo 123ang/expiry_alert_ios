@@ -376,6 +376,11 @@ extension APIService {
     func logout() async throws {
         try await requestVoid(endpoint: "/auth/logout", method: "POST")
     }
+    
+    /// Permanently deletes the current user's account and all associated data. Requires auth.
+    func deleteAccount() async throws {
+        try await requestVoid(endpoint: "/auth/me", method: "DELETE")
+    }
 }
 
 // MARK: - Groups API

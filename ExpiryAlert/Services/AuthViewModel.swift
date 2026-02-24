@@ -77,4 +77,12 @@ class AuthViewModel: ObservableObject {
     func changePassword(currentPassword: String, newPassword: String) async throws {
         try await APIService.shared.changePassword(currentPassword: currentPassword, newPassword: newPassword)
     }
+    
+    /// Permanently deletes the account on the server, then clears local session.
+    func deleteAccount() async throws {
+        try await APIService.shared.deleteAccount()
+        TokenManager.shared.clearTokens()
+        self.user = nil
+        self.isAuthenticated = false
+    }
 }

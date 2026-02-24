@@ -588,15 +588,31 @@ struct GroupsManagementModal: View {
         }
     }
     
+    private func isPersonalGroup(_ group: Group) -> Bool {
+        (group.maxMembers ?? 0) == 1
+            || group.name == localizationManager.t("home.personalGroup")
+            || group.name.trimmingCharacters(in: .whitespaces).lowercased() == "personal"
+    }
+    
+    private func displayName(for group: Group) -> String {
+        isPersonalGroup(group) ? localizationManager.t("home.personalGroup") : group.name
+    }
+    
+    private func displayDescription(for group: Group) -> String {
+        isPersonalGroup(group) ? localizationManager.t("home.groupSubtitle") : (group.description ?? localizationManager.t("groups.noDescription"))
+    }
+    
     @ViewBuilder
     private func groupRow(group: Group) -> some View {
+        let name = displayName(for: group)
+        let desc = displayDescription(for: group)
         HStack(spacing: 12) {
             // Avatar
             ZStack {
                 Circle()
                     .fill(Color(hex: theme.primaryColor).opacity(0.15))
                     .frame(width: 40, height: 40)
-                Text(String(group.name.prefix(1)).uppercased())
+                Text(String(name.prefix(1)).uppercased())
                     .font(.headline)
                     .fontWeight(.bold)
                     .foregroundColor(Color(hex: theme.primaryColor))
@@ -604,10 +620,10 @@ struct GroupsManagementModal: View {
             
             // Info
             VStack(alignment: .leading, spacing: 2) {
-                Text(group.name)
+                Text(name)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(Color(hex: theme.textColor))
-                Text(group.description ?? localizationManager.t("groups.noDescription"))
+                Text(desc)
                     .font(.system(size: 14))
                     .foregroundColor(Color(hex: theme.textSecondary))
                     .lineLimit(1)

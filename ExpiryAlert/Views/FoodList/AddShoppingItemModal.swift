@@ -201,10 +201,20 @@ struct SimpleCategoryPickerSheet: View {
     @EnvironmentObject var localizationManager: LocalizationManager
     @Environment(\.dismiss) var dismiss
 
+    @State private var searchText = ""
+
     private var theme: AppTheme { themeManager.currentTheme }
 
     private var categories: [Category] {
         localizationManager.deduplicatedCategories(dataStore.visibleDisplayCategories)
+    }
+
+    private var filteredCategories: [Category] {
+        let term = searchText.trimmingCharacters(in: .whitespaces).lowercased()
+        if term.isEmpty { return categories }
+        return categories.filter {
+            localizationManager.getCategoryName($0).lowercased().contains(term)
+        }
     }
 
     var body: some View {
@@ -212,7 +222,7 @@ struct SimpleCategoryPickerSheet: View {
             ZStack {
                 Color(hex: theme.backgroundColor).ignoresSafeArea()
                 List {
-                    ForEach(categories) { category in
+                    ForEach(filteredCategories) { category in
                         Button(action: {
                             selectedCategoryId = category.id
                             onDismiss()
@@ -238,6 +248,7 @@ struct SimpleCategoryPickerSheet: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
             }
+            .searchable(text: $searchText, prompt: localizationManager.t("categories.searchPlaceholder"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color(hex: theme.backgroundColor), for: .navigationBar)
             .toolbar {

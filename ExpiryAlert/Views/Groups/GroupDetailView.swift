@@ -23,6 +23,13 @@ struct GroupDetailView: View {
     
     private var theme: AppTheme { themeManager.currentTheme }
     
+    /// Personal group: max 1 member, no invite/delete. Treat as personal when maxMembers is 1, or name matches localized "Personal", or API name is "Personal".
+    private var isPersonalGroup: Bool {
+        (group.maxMembers ?? 0) == 1
+            || group.name == localizationManager.t("home.personalGroup")
+            || group.name.trimmingCharacters(in: .whitespaces).lowercased() == "personal"
+    }
+    
     var body: some View {
         ZStack {
             Color(hex: theme.backgroundColor).ignoresSafeArea()
@@ -32,19 +39,21 @@ struct GroupDetailView: View {
                     // Group Info Card
                     groupInfoCard
                     
-                    // Invite Code Card
-                    if let inviteCode = group.inviteCode, !inviteCode.isEmpty {
+                    // Invite Code Card (hidden for personal group)
+                    if !isPersonalGroup, let inviteCode = group.inviteCode, !inviteCode.isEmpty {
                         inviteCodeCard(code: inviteCode)
                     }
                     
-                    // Actions
-                    actionsSection
+                    // Actions (invite / share – hidden for personal group)
+                    if !isPersonalGroup {
+                        actionsSection
+                    }
                     
                     // Members Section
                     membersSection
                     
-                    // Danger Zone
-                    if currentUserRole == "owner" {
+                    // Danger Zone (hidden for personal group – no delete)
+                    if currentUserRole == "owner", !isPersonalGroup {
                         dangerZoneSection
                     }
                 }
@@ -52,7 +61,7 @@ struct GroupDetailView: View {
                 .padding(.bottom, 20)
             }
         }
-        .navigationTitle(group.name)
+        .navigationTitle(isPersonalGroup ? localizationManager.t("home.personalGroup") : group.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if currentUserRole == "owner" || currentUserRole == "admin" {
@@ -77,32 +86,32 @@ struct GroupDetailView: View {
                 .environmentObject(localizationManager)
                 .environmentObject(dataStore)
         }
-        .alert("Edit Group", isPresented: $showEditGroup) {
-            TextField("Group Name", text: $editName)
-            TextField("Description (optional)", text: $editDescription)
-            Button("Cancel", role: .cancel) {}
-            Button("Save") {
+        .alert(localizationManager.t("groupDetail.editGroup"), isPresented: $showEditGroup) {
+            TextField(localizationManager.t("groupDetail.groupName"), text: $editName)
+            TextField(localizationManager.t("groupDetail.descriptionOptional"), text: $editDescription)
+            Button(localizationManager.t("common.cancel"), role: .cancel) {}
+            Button(localizationManager.t("common.save")) {
                 Task { await updateGroup() }
             }
         }
-        .alert("Delete Group", isPresented: $showDeleteAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
+        .alert(localizationManager.t("groupDetail.deleteGroup"), isPresented: $showDeleteAlert) {
+            Button(localizationManager.t("common.cancel"), role: .cancel) {}
+            Button(localizationManager.t("action.delete"), role: .destructive) {
                 Task { await deleteGroup() }
             }
         } message: {
-            Text("Are you sure you want to delete \"\(group.name)\"? This will permanently remove all items, categories, locations, and members. This action cannot be undone.")
+            Text(String(format: localizationManager.t("groupDetail.deleteGroupMessage"), isPersonalGroup ? localizationManager.t("home.personalGroup") : group.name))
         }
-        .alert("Error", isPresented: $showError) {
-            Button("OK") {}
+        .alert(localizationManager.t("alert.error"), isPresented: $showError) {
+            Button(localizationManager.t("common.ok")) {}
         } message: {
-            Text(errorMessage ?? "Something went wrong")
+            Text(errorMessage ?? localizationManager.t("common.somethingWentWrong"))
         }
         .overlay {
             if showInviteCodeCopied {
                 VStack {
                     Spacer()
-                    Text("Invite code copied!")
+                    Text(localizationManager.t("groupDetail.inviteCodeCopied"))
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .foregroundColor(.white)
@@ -133,13 +142,14 @@ struct GroupDetailView: View {
             }
             
             VStack(spacing: 6) {
-                Text(group.name)
+                Text(isPersonalGroup ? localizationManager.t("home.personalGroup") : group.name)
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(Color(hex: theme.textColor))
                 
-                if let desc = group.description, !desc.isEmpty {
-                    Text(desc)
+                let descriptionText = isPersonalGroup ? localizationManager.t("home.groupSubtitle") : (group.description ?? "")
+                if !descriptionText.isEmpty {
+                    Text(descriptionText)
                         .font(.subheadline)
                         .foregroundColor(Color(hex: theme.textSecondary))
                         .multilineTextAlignment(.center)
@@ -148,11 +158,9 @@ struct GroupDetailView: View {
             
             // Stats
             HStack(spacing: 24) {
-                statItem(icon: "person.2.fill", value: "\(members.count)", label: "Members")
-                statItem(icon: "person.fill.badge.plus", value: "\(group.maxMembers ?? 100)", label: "Max")
-                if let role = currentUserRole.capitalized as String? {
-                    statItem(icon: "shield.fill", value: role, label: "Your Role")
-                }
+                statItem(icon: "person.2.fill", value: "\(members.count)", label: localizationManager.t("groupDetail.members"))
+                statItem(icon: "person.fill.badge.plus", value: "\(isPersonalGroup ? 1 : (group.maxMembers ?? 100))", label: localizationManager.t("groupDetail.max"))
+                statItem(icon: "shield.fill", value: localizedRole(currentUserRole), label: localizationManager.t("groupDetail.yourRole"))
             }
         }
         .padding(20)
@@ -163,6 +171,14 @@ struct GroupDetailView: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(Color(hex: theme.borderColor), lineWidth: 1)
         )
+    }
+    
+    private func localizedRole(_ role: String) -> String {
+        switch role.lowercased() {
+        case "owner": return localizationManager.t("groupDetail.roleOwner")
+        case "admin": return localizationManager.t("groupDetail.roleAdmin")
+        default: return localizationManager.t("groupDetail.roleMember")
+        }
     }
     
     private func statItem(icon: String, value: String, label: String) -> some View {
@@ -185,7 +201,7 @@ struct GroupDetailView: View {
             HStack {
                 Image(systemName: "ticket.fill")
                     .foregroundColor(Color(hex: theme.primaryColor))
-                Text("Invite Code")
+                Text(localizationManager.t("groupDetail.inviteCode"))
                     .font(.headline)
                     .foregroundColor(Color(hex: theme.textColor))
                 Spacer()
@@ -215,7 +231,7 @@ struct GroupDetailView: View {
                 }
             }
             
-            Text("Share this code with others to let them join your group")
+            Text(localizationManager.t("groupDetail.shareCodeHint"))
                 .font(.caption)
                 .foregroundColor(Color(hex: theme.textSecondary))
         }
@@ -236,7 +252,7 @@ struct GroupDetailView: View {
                     HStack {
                         Image(systemName: "person.badge.plus")
                             .font(.system(size: 16))
-                        Text("Invite Member")
+                        Text(localizationManager.t("groupDetail.inviteMember"))
                             .fontWeight(.medium)
                     }
                     .frame(maxWidth: .infinity)
@@ -259,7 +275,7 @@ struct GroupDetailView: View {
                 HStack {
                     Image(systemName: "square.and.arrow.up")
                         .font(.system(size: 16))
-                    Text("Share Invite Link")
+                    Text(localizationManager.t("groupDetail.shareInviteLink"))
                         .fontWeight(.medium)
                 }
                 .frame(maxWidth: .infinity)
@@ -279,7 +295,7 @@ struct GroupDetailView: View {
     private var membersSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Members")
+                Text(localizationManager.t("groupDetail.members"))
                     .font(.headline)
                     .foregroundColor(Color(hex: theme.textColor))
                 Spacer()
@@ -302,6 +318,7 @@ struct GroupDetailView: View {
                         currentUserRole: currentUserRole,
                         currentUserId: authViewModel.user?.id ?? "",
                         theme: theme,
+                        localizationManager: localizationManager,
                         onRoleChange: { newRole in
                             Task { await changeMemberRole(member: member, to: newRole) }
                         },
@@ -324,7 +341,7 @@ struct GroupDetailView: View {
     // MARK: - Danger Zone
     private var dangerZoneSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Danger Zone")
+            Text(localizationManager.t("groupDetail.dangerZone"))
                 .font(.caption)
                 .fontWeight(.medium)
                 .foregroundColor(Color(hex: theme.dangerColor))
@@ -333,7 +350,7 @@ struct GroupDetailView: View {
             Button(action: { showDeleteAlert = true }) {
                 HStack {
                     Image(systemName: "trash.fill")
-                    Text("Delete Group")
+                    Text(localizationManager.t("groupDetail.deleteGroup"))
                         .fontWeight(.medium)
                 }
                 .frame(maxWidth: .infinity)
@@ -416,6 +433,7 @@ struct MemberRow: View {
     let currentUserRole: String
     let currentUserId: String
     let theme: AppTheme
+    let localizationManager: LocalizationManager
     let onRoleChange: (String) -> Void
     let onRemove: () -> Void
     
@@ -425,6 +443,14 @@ struct MemberRow: View {
     private var isCurrentUser: Bool { member.userId == currentUserId }
     private var isOwner: Bool { member.role == "owner" }
     private var canManage: Bool { (currentUserRole == "owner" || currentUserRole == "admin") && !isCurrentUser && !isOwner }
+    
+    private func localizedRole(_ role: String) -> String {
+        switch role.lowercased() {
+        case "owner": return localizationManager.t("groupDetail.roleOwner")
+        case "admin": return localizationManager.t("groupDetail.roleAdmin")
+        default: return localizationManager.t("groupDetail.roleMember")
+        }
+    }
     
     var body: some View {
         HStack(spacing: 12) {
@@ -442,13 +468,13 @@ struct MemberRow: View {
             // Info
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text(member.fullName ?? member.email ?? "Unknown")
+                    Text(member.fullName ?? member.email ?? localizationManager.t("common.none"))
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .foregroundColor(Color(hex: theme.textColor))
                     
                     if isCurrentUser {
-                        Text("You")
+                        Text(localizationManager.t("groupDetail.you"))
                             .font(.caption2)
                             .fontWeight(.medium)
                             .foregroundColor(Color(hex: theme.primaryColor))
@@ -469,7 +495,7 @@ struct MemberRow: View {
             Spacer()
             
             // Role Badge
-            Text(member.role.capitalized)
+            Text(localizedRole(member.role))
                 .font(.caption)
                 .fontWeight(.medium)
                 .foregroundColor(roleColor)
@@ -483,18 +509,18 @@ struct MemberRow: View {
                 Menu {
                     if member.role == "member" {
                         Button(action: { onRoleChange("admin") }) {
-                            Label("Make Admin", systemImage: "shield.fill")
+                            Label(localizationManager.t("groupDetail.makeAdmin"), systemImage: "shield.fill")
                         }
                     } else if member.role == "admin" {
                         Button(action: { onRoleChange("member") }) {
-                            Label("Make Member", systemImage: "person.fill")
+                            Label(localizationManager.t("groupDetail.makeMember"), systemImage: "person.fill")
                         }
                     }
                     
                     Divider()
                     
                     Button(role: .destructive, action: { showRemoveAlert = true }) {
-                        Label("Remove", systemImage: "person.badge.minus")
+                        Label(localizationManager.t("groupDetail.remove"), systemImage: "person.badge.minus")
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -505,11 +531,11 @@ struct MemberRow: View {
             }
         }
         .padding(.vertical, 4)
-        .alert("Remove Member", isPresented: $showRemoveAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Remove", role: .destructive) { onRemove() }
+        .alert(localizationManager.t("groupDetail.removeMember"), isPresented: $showRemoveAlert) {
+            Button(localizationManager.t("common.cancel"), role: .cancel) {}
+            Button(localizationManager.t("groupDetail.remove"), role: .destructive) { onRemove() }
         } message: {
-            Text("Are you sure you want to remove \(member.fullName ?? member.email ?? "this member") from the group?")
+            Text(String(format: localizationManager.t("groupDetail.removeMemberMessage"), member.fullName ?? member.email ?? localizationManager.t("groupDetail.thisMember")))
         }
     }
     

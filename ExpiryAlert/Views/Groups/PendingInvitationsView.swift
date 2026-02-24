@@ -29,6 +29,7 @@ struct PendingInvitationsView: View {
                             InvitationCard(
                                 invitation: invitation,
                                 theme: theme,
+                                localizationManager: localizationManager,
                                 isProcessing: processingIds.contains(invitation.id),
                                 onAccept: { Task { await acceptInvitation(invitation) } },
                                 onDecline: { Task { await declineInvitation(invitation) } }
@@ -40,7 +41,7 @@ struct PendingInvitationsView: View {
                 }
             }
         }
-        .navigationTitle("Invitations")
+        .navigationTitle(localizationManager.t("invitations.title"))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadInvitations()
@@ -48,10 +49,10 @@ struct PendingInvitationsView: View {
         .refreshable {
             await loadInvitations()
         }
-        .alert("Error", isPresented: $showError) {
-            Button("OK") {}
+        .alert(localizationManager.t("alert.error"), isPresented: $showError) {
+            Button(localizationManager.t("common.ok")) {}
         } message: {
-            Text(errorMessage ?? "Something went wrong")
+            Text(errorMessage ?? localizationManager.t("common.somethingWentWrong"))
         }
     }
     
@@ -67,12 +68,12 @@ struct PendingInvitationsView: View {
                     .foregroundColor(Color(hex: theme.primaryColor))
             }
             
-            Text("No Pending Invitations")
+            Text(localizationManager.t("invitations.noPending"))
                 .font(.title3)
                 .fontWeight(.bold)
                 .foregroundColor(Color(hex: theme.textColor))
             
-            Text("When someone invites you to a group, it will appear here")
+            Text(localizationManager.t("invitations.emptyHint"))
                 .font(.subheadline)
                 .foregroundColor(Color(hex: theme.textSecondary))
                 .multilineTextAlignment(.center)
@@ -121,6 +122,7 @@ struct PendingInvitationsView: View {
 struct InvitationCard: View {
     let invitation: Invitation
     let theme: AppTheme
+    @ObservedObject var localizationManager: LocalizationManager
     let isProcessing: Bool
     let onAccept: () -> Void
     let onDecline: () -> Void
@@ -139,7 +141,7 @@ struct InvitationCard: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(invitation.groupName ?? "Group")
+                    Text(invitation.groupName ?? localizationManager.t("invitations.groupFallback"))
                         .font(.headline)
                         .foregroundColor(Color(hex: theme.textColor))
                     
@@ -159,10 +161,10 @@ struct InvitationCard: View {
                 Image(systemName: "person.fill")
                     .font(.caption)
                     .foregroundColor(Color(hex: theme.textSecondary))
-                Text("Invited by")
+                Text(localizationManager.t("invitations.invitedBy"))
                     .font(.caption)
                     .foregroundColor(Color(hex: theme.textSecondary))
-                Text(invitation.invitedByName ?? invitation.invitedByEmail ?? "Someone")
+                Text(invitation.invitedByName ?? invitation.invitedByEmail ?? localizationManager.t("invitations.someone"))
                     .font(.caption)
                     .fontWeight(.medium)
                     .foregroundColor(Color(hex: theme.textColor))
@@ -186,7 +188,7 @@ struct InvitationCard: View {
                                 .tint(Color(hex: theme.textSecondary))
                                 .scaleEffect(0.8)
                         }
-                        Text("Decline")
+                        Text(localizationManager.t("invitations.decline"))
                             .fontWeight(.medium)
                     }
                     .frame(maxWidth: .infinity)
@@ -208,7 +210,7 @@ struct InvitationCard: View {
                                 .tint(.white)
                                 .scaleEffect(0.8)
                         }
-                        Text("Accept")
+                        Text(localizationManager.t("invitations.accept"))
                             .fontWeight(.medium)
                     }
                     .frame(maxWidth: .infinity)
@@ -242,8 +244,8 @@ struct InvitationCard: View {
     
     private func timeUntil(_ date: Date) -> String {
         let days = Calendar.current.dateComponents([.day], from: Date(), to: date).day ?? 0
-        if days <= 0 { return "Expires soon" }
-        if days == 1 { return "Expires in 1 day" }
-        return "Expires in \(days) days"
+        if days <= 0 { return localizationManager.t("invitations.expiresSoon") }
+        if days == 1 { return localizationManager.t("invitations.expiresIn1Day") }
+        return String(format: localizationManager.t("invitations.expiresInDays"), days)
     }
 }

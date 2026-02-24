@@ -38,12 +38,12 @@ struct JoinGroupView: View {
                                     .foregroundColor(Color(hex: theme.primaryColor))
                             }
                             
-                            Text("Join a Group")
+                            Text(localizationManager.t("joinGroup.heading"))
                                 .font(.title3)
                                 .fontWeight(.bold)
                                 .foregroundColor(Color(hex: theme.textColor))
                             
-                            Text("Enter the invite code to join an existing group")
+                            Text(localizationManager.t("joinGroup.subtitle"))
                                 .font(.subheadline)
                                 .foregroundColor(Color(hex: theme.textSecondary))
                                 .multilineTextAlignment(.center)
@@ -53,7 +53,7 @@ struct JoinGroupView: View {
                         
                         // Code Input
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Invite Code")
+                            Text(localizationManager.t("groupDetail.inviteCode"))
                                 .font(.subheadline)
                                 .fontWeight(.medium)
                                 .foregroundColor(Color(hex: theme.textColor))
@@ -63,7 +63,7 @@ struct JoinGroupView: View {
                                     .foregroundColor(Color(hex: theme.textSecondary))
                                     .frame(width: 20)
                                 
-                                TextField("Enter invite code", text: $inviteCode)
+                                TextField(localizationManager.t("groupDetail.enterInviteCode"), text: $inviteCode)
                                     .font(.system(size: 18, weight: .medium, design: .monospaced))
                                     .autocapitalization(.allCharacters)
                                     .disableAutocorrection(true)
@@ -106,7 +106,7 @@ struct JoinGroupView: View {
                                     } else {
                                         Image(systemName: "magnifyingglass")
                                     }
-                                    Text(isVerifying ? "Verifying..." : "Verify Code")
+                                    Text(isVerifying ? localizationManager.t("joinGroup.verifying") : localizationManager.t("joinGroup.verifyCode"))
                                         .fontWeight(.medium)
                                 }
                                 .frame(maxWidth: .infinity)
@@ -166,7 +166,7 @@ struct JoinGroupView: View {
                                         HStack(spacing: 4) {
                                             Image(systemName: "person.2.fill")
                                                 .font(.caption)
-                                            Text("\(count) member\(count == 1 ? "" : "s")")
+                                            Text(count == 1 ? localizationManager.t("joinGroup.oneMember") : String(format: localizationManager.t("joinGroup.manyMembers"), count))
                                                 .font(.caption)
                                         }
                                         .foregroundColor(Color(hex: theme.textSecondary))
@@ -190,7 +190,7 @@ struct JoinGroupView: View {
                                         } else {
                                             Image(systemName: "arrow.right.circle.fill")
                                         }
-                                        Text(isJoining ? "Joining..." : "Join Group")
+                                        Text(isJoining ? localizationManager.t("joinGroup.joining") : localizationManager.t("joinGroup.joinButton"))
                                             .fontWeight(.semibold)
                                     }
                                     .frame(maxWidth: .infinity)
@@ -208,23 +208,23 @@ struct JoinGroupView: View {
                     .padding(16)
                 }
             }
-            .navigationTitle("Join Group")
+            .navigationTitle(localizationManager.t("joinGroup.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") { dismiss() }
+                    Button(localizationManager.t("common.close")) { dismiss() }
                         .foregroundColor(Color(hex: theme.primaryColor))
                 }
             }
-            .alert("Error", isPresented: $showError) {
-                Button("OK") {}
+            .alert(localizationManager.t("alert.error"), isPresented: $showError) {
+                Button(localizationManager.t("common.ok")) {}
             } message: {
-                Text(errorMessage ?? "Something went wrong")
+                Text(errorMessage ?? localizationManager.t("common.somethingWentWrong"))
             }
-            .alert("Success", isPresented: $showSuccess) {
-                Button("OK") { dismiss() }
+            .alert(localizationManager.t("alert.success"), isPresented: $showSuccess) {
+                Button(localizationManager.t("common.ok")) { dismiss() }
             } message: {
-                Text("You have successfully joined \(verifiedGroupName ?? "the group")!")
+                Text(String(format: localizationManager.t("joinGroup.successMessage"), verifiedGroupName ?? localizationManager.t("invitations.groupFallback")))
             }
         }
     }
@@ -241,10 +241,10 @@ struct JoinGroupView: View {
                 verifiedGroupDesc = group.description
                 verifiedMemberCount = group.memberCount
             } else {
-                verificationError = verification.error ?? "Invalid or expired invite code"
+                verificationError = verification.error ?? localizationManager.t("joinGroup.invalidCode")
             }
         } catch {
-            verificationError = "Could not verify code. Please check and try again."
+            verificationError = localizationManager.t("joinGroup.verifyError")
         }
         
         isVerifying = false
