@@ -78,6 +78,16 @@ class AuthViewModel: ObservableObject {
         try await APIService.shared.changePassword(currentPassword: currentPassword, newPassword: newPassword)
     }
     
+    /// Request a password reset email (sends 6-digit code).
+    func forgotPassword(email: String) async throws {
+        try await APIService.shared.forgotPassword(email: email)
+    }
+
+    /// Reset password using email + 6-digit code from email.
+    func resetPassword(email: String, code: String, newPassword: String) async throws {
+        try await APIService.shared.resetPassword(email: email, code: code, newPassword: newPassword)
+    }
+
     /// Permanently deletes the account on the server, then clears local session.
     func deleteAccount() async throws {
         try await APIService.shared.deleteAccount()

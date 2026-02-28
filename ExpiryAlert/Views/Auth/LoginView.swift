@@ -16,6 +16,17 @@ struct LoginView: View {
     @State private var showPassword = false
     @State private var showConfirmPassword = false
     @State private var showLanguagePicker = false
+    @State private var showForgotPassword = false
+    @State private var forgotEmail = ""
+    @State private var isSendingReset = false
+    @State private var showResetSent = false
+    @State private var showPasswordResetSuccess = false
+    @State private var forgotStep2 = false
+    @State private var resetCode = ""
+    @State private var resetNewPassword = ""
+    @State private var resetConfirmPassword = ""
+    @State private var showResetPassword = false
+    @State private var isResettingPassword = false
     
     private var theme: AppTheme { themeManager.currentTheme }
     
@@ -102,6 +113,23 @@ struct LoginView: View {
                     }
                     .padding(.horizontal, 20)
                     
+                    // Forgot Password (login mode only)
+                    if !isSignUp {
+                        HStack {
+                            Spacer()
+                            Button(action: {
+                                forgotEmail = email
+                                showForgotPassword = true
+                            }) {
+                                Text(localizationManager.t("auth.forgotPassword"))
+                                    .font(.subheadline)
+                                    .foregroundColor(Color(hex: theme.primaryColor))
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, -4)
+                    }
+                    
                     // Submit Button
                     Button(action: handleSubmit, label: {
                         ZStack {
@@ -144,6 +172,19 @@ struct LoginView: View {
         } message: {
             Text(errorMessage)
         }
+        .sheet(isPresented: $showForgotPassword) {
+            forgotPasswordSheet
+        }
+        .alert(localizationManager.t("auth.resetEmailSentTitle"), isPresented: $showResetSent) {
+            Button(localizationManager.t("common.ok"), role: .cancel) {}
+        } message: {
+            Text(localizationManager.t("auth.resetEmailSentMessage"))
+        }
+        .alert(localizationManager.t("auth.passwordResetSuccessTitle"), isPresented: $showPasswordResetSuccess) {
+            Button(localizationManager.t("common.ok"), role: .cancel) {}
+        } message: {
+            Text(localizationManager.t("auth.passwordResetSuccessMessage"))
+        }
     }
     
     private var languagePickerSheet: some View {
@@ -178,6 +219,211 @@ struct LoginView: View {
                         .foregroundColor(Color(hex: theme.primaryColor))
                 }
             }
+        }
+    }
+    
+    private var forgotPasswordSheet: some View {
+        let inputTextColor = theme.calendarTextColor
+        let inputPlaceholderColor = theme.subtitleOnCard
+        
+        return NavigationStack {
+            ZStack {
+                Color(hex: theme.backgroundColor).ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: 20) {
+                        Spacer().frame(height: 20)
+                        
+                        if !forgotStep2 {
+                            // Step 1: Enter email
+                            Image(systemName: "envelope.badge")
+                                .font(.system(size: 48))
+                                .foregroundColor(Color(hex: theme.primaryColor))
+                            
+                            Text(localizationManager.t("auth.forgotPasswordTitle"))
+                                .font(.title2.bold())
+                                .foregroundColor(Color(hex: theme.textColor))
+                            
+                            Text(localizationManager.t("auth.forgotPasswordSubtitle"))
+                                .font(.subheadline)
+                                .foregroundColor(Color(hex: theme.subtitleColor))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 20)
+                            
+                            ThemedTextField(
+                                placeholder: localizationManager.t("auth.email"),
+                                text: $forgotEmail,
+                                theme: theme,
+                                keyboardType: .emailAddress,
+                                textContentType: .emailAddress,
+                                autocapitalization: .never,
+                                textColorOverride: inputTextColor,
+                                placeholderColorOverride: inputPlaceholderColor
+                            )
+                            .padding(.horizontal, 20)
+                            
+                            Button(action: handleForgotPassword) {
+                                ZStack {
+                                    if isSendingReset {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    } else {
+                                        Text(localizationManager.t("auth.sendResetCode"))
+                                            .fontWeight(.bold)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 15)
+                                .background(Color(hex: theme.primaryColor))
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                            }
+                            .disabled(isSendingReset || forgotEmail.trimmingCharacters(in: .whitespaces).isEmpty)
+                            .padding(.horizontal, 20)
+                        } else {
+                            // Step 2: Enter code + new password
+                            Image(systemName: "lock.badge")
+                                .font(.system(size: 48))
+                                .foregroundColor(Color(hex: theme.primaryColor))
+                            
+                            Text(localizationManager.t("auth.enterResetCodeTitle"))
+                                .font(.title2.bold())
+                                .foregroundColor(Color(hex: theme.textColor))
+                            
+                            Text(localizationManager.t("auth.enterResetCodeSubtitle"))
+                                .font(.subheadline)
+                                .foregroundColor(Color(hex: theme.subtitleColor))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 20)
+                            
+                            ThemedTextField(
+                                placeholder: localizationManager.t("auth.resetCodePlaceholder"),
+                                text: $resetCode,
+                                theme: theme,
+                                keyboardType: .numberPad,
+                                textContentType: .oneTimeCode,
+                                autocapitalization: .never,
+                                textColorOverride: inputTextColor,
+                                placeholderColorOverride: inputPlaceholderColor
+                            )
+                            .padding(.horizontal, 20)
+                            .onChange(of: resetCode) { _, newValue in
+                                let filtered = newValue.filter { $0.isNumber }
+                                if filtered.count <= 6 {
+                                    resetCode = filtered
+                                } else {
+                                    resetCode = String(filtered.prefix(6))
+                                }
+                            }
+                            
+                            HStack {
+                                if showResetPassword {
+                                    ThemedTextField(placeholder: localizationManager.t("auth.newPassword"), text: $resetNewPassword, theme: theme, textContentType: .newPassword, autocapitalization: .never, textColorOverride: inputTextColor, placeholderColorOverride: inputPlaceholderColor)
+                                } else {
+                                    ThemedSecureField(placeholder: localizationManager.t("auth.newPassword"), text: $resetNewPassword, theme: theme, textContentType: .newPassword, textColorOverride: inputTextColor, placeholderColorOverride: inputPlaceholderColor)
+                                }
+                                Button(action: { showResetPassword.toggle() }) {
+                                    Image(systemName: showResetPassword ? "eye.slash.fill" : "eye.fill")
+                                        .foregroundColor(Color(hex: inputPlaceholderColor))
+                                        .frame(width: 44, height: 44)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            
+                            ThemedSecureField(
+                                placeholder: localizationManager.t("auth.confirmPassword"),
+                                text: $resetConfirmPassword,
+                                theme: theme,
+                                textContentType: .newPassword,
+                                textColorOverride: inputTextColor,
+                                placeholderColorOverride: inputPlaceholderColor
+                            )
+                            .padding(.horizontal, 20)
+                            
+                            Button(action: handleResetPassword) {
+                                ZStack {
+                                    if isResettingPassword {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    } else {
+                                        Text(localizationManager.t("auth.resetPasswordButton"))
+                                            .fontWeight(.bold)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 15)
+                                .background(Color(hex: theme.primaryColor))
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                            }
+                            .disabled(isResettingPassword || resetCode.count != 6 || resetNewPassword.count < 6 || resetNewPassword != resetConfirmPassword)
+                            .padding(.horizontal, 20)
+                            
+                            Button(action: { forgotStep2 = false; resetCode = ""; resetNewPassword = ""; resetConfirmPassword = "" }) {
+                                Text(localizationManager.t("auth.useDifferentEmail"))
+                                    .font(.subheadline)
+                                    .foregroundColor(Color(hex: theme.primaryColor))
+                            }
+                        }
+                        
+                        Spacer().frame(height: 40)
+                    }
+                }
+            }
+            .navigationTitle(localizationManager.t("auth.forgotPassword"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(hex: theme.backgroundColor), for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(localizationManager.t("common.close")) {
+                        showForgotPassword = false
+                        forgotStep2 = false
+                        resetCode = ""
+                        resetNewPassword = ""
+                        resetConfirmPassword = ""
+                    }
+                    .foregroundColor(Color(hex: theme.primaryColor))
+                }
+            }
+        }
+    }
+    
+    private func handleForgotPassword() {
+        let trimmedEmail = forgotEmail.trimmingCharacters(in: .whitespaces)
+        guard !trimmedEmail.isEmpty else { return }
+        
+        isSendingReset = true
+        Task {
+            do {
+                try await authViewModel.forgotPassword(email: trimmedEmail)
+                forgotStep2 = true
+            } catch {
+                errorMessage = error.localizedDescription
+                showForgotPassword = false
+                showError = true
+            }
+            isSendingReset = false
+        }
+    }
+    
+    private func handleResetPassword() {
+        let trimmedEmail = forgotEmail.trimmingCharacters(in: .whitespaces)
+        guard resetCode.count == 6, resetNewPassword.count >= 6, resetNewPassword == resetConfirmPassword else { return }
+        
+        isResettingPassword = true
+        Task {
+            do {
+                try await authViewModel.resetPassword(email: trimmedEmail, code: resetCode, newPassword: resetNewPassword)
+                showForgotPassword = false
+                forgotStep2 = false
+                resetCode = ""
+                resetNewPassword = ""
+                resetConfirmPassword = ""
+                showPasswordResetSuccess = true
+            } catch {
+                errorMessage = error.localizedDescription
+                showError = true
+            }
+            isResettingPassword = false
         }
     }
     

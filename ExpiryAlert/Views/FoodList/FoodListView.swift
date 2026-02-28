@@ -5,7 +5,7 @@ struct FoodListView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @EnvironmentObject var localizationManager: LocalizationManager
     @EnvironmentObject var toastManager: ToastManager
-
+    
     @State private var listMode: ListMode = .shopping
     @State private var showAddShoppingModal = false
     @State private var showAddWishlistModal = false
@@ -23,7 +23,7 @@ struct FoodListView: View {
     @State private var wishlistRatingFilter: Int? = nil
     /// When false, filter chips are always shown; when true, collapsed to a single row (user choice, persisted).
     @State private var wishlistFiltersCollapsed: Bool = UserDefaults.standard.object(forKey: Self.wishlistFiltersCollapsedKey) as? Bool ?? false
-
+    
     private var theme: AppTheme { themeManager.currentTheme }
 
     private static let lastWishlistCurrencyKey = "lastWishlistCurrencyCode"
@@ -36,7 +36,7 @@ struct FoodListView: View {
     private var purchasedShoppingItems: [ShoppingItem] {
         visibleShoppingItems.filter { $0.isPurchased }
     }
-
+    
     enum ListMode: String, CaseIterable {
         case shopping
         case wish
@@ -208,11 +208,11 @@ struct FoodListView: View {
             set: { if $0 { collapsedStoreKeys.remove(storeKey) } else { collapsedStoreKeys.insert(storeKey) } }
         )
     }
-
+    
     var body: some View {
         ZStack {
             Color(hex: theme.backgroundColor).ignoresSafeArea()
-
+            
             VStack(spacing: 0) {
                 ListTabsHeader(
                     selectedTab: listMode == .shopping ? 0 : 1,
@@ -367,7 +367,7 @@ struct FoodListView: View {
                 buttonTitle: localizationManager.t("shoppingList.addItem"),
                 onAddTap: { showAddShoppingModal = true }
             )
-        } else {
+            } else {
             VStack(spacing: 0) {
                 List {
                     ForEach(shoppingStoreGroups, id: \.key) { group in
@@ -391,7 +391,7 @@ struct FoodListView: View {
                                 Text(group.key)
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
-                                    .foregroundColor(Color(hex: theme.textColor))
+                                .foregroundColor(Color(hex: theme.textColor))
                             }
                         }
                         .listRowBackground(Color(hex: theme.cardBackground))
@@ -437,13 +437,13 @@ struct FoodListView: View {
 
     @ViewBuilder
     private var wishListContent: some View {
-        if dataStore.wishItems.isEmpty {
+            if dataStore.wishItems.isEmpty {
             emptyStateView(
                 message: localizationManager.t("wishList.noItems") + "\n" + localizationManager.t("list.tapAddToAddItem"),
                 buttonTitle: localizationManager.t("wishList.addItem"),
                 onAddTap: { showAddWishlistModal = true }
             )
-        } else {
+            } else {
             VStack(alignment: .leading, spacing: 12) {
                 // ——— 1) Filter by desire level (collapsible) ———
                 VStack(alignment: .leading, spacing: 0) {
@@ -637,12 +637,12 @@ struct FoodListView: View {
         }
         .padding()
     }
-
+    
     private func tryClearCompletedShoppingItems() {
         let notYetInInventory = purchasedShoppingItems.contains { $0.movedToInventory != true }
         if notYetInInventory {
             showClearCompletedWarningAlert = true
-        } else {
+                } else {
             clearCompletedShoppingItems()
         }
     }

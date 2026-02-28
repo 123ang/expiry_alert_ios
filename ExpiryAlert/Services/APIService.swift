@@ -420,6 +420,30 @@ extension APIService {
     func deleteAccount() async throws {
         try await requestVoidNoContent(endpoint: "/auth/me", method: "DELETE")
     }
+
+    /// Request a password reset email. Sends 6-digit code to email. Always succeeds (does not reveal whether email exists).
+    func forgotPassword(email: String) async throws {
+        try await requestVoid(
+            endpoint: "/auth/forgot-password",
+            method: "POST",
+            body: ["email": email],
+            authenticated: false
+        )
+    }
+
+    /// Reset password using the 6-digit code sent to the user's email. No auth required.
+    func resetPassword(email: String, code: String, newPassword: String) async throws {
+        try await requestVoid(
+            endpoint: "/auth/reset-password",
+            method: "POST",
+            body: [
+                "email": email,
+                "code": code.trimmingCharacters(in: .whitespaces),
+                "password": newPassword
+            ],
+            authenticated: false
+        )
+    }
 }
 
 // MARK: - Groups API
