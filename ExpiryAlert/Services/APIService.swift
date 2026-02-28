@@ -230,6 +230,45 @@ class APIService {
         )
     }
     
+    /// Use for endpoints that return 204 No Content (empty body). Does not decode response; avoids decoding error when server sends no body.
+    private func requestVoidNoContent(
+        endpoint: String,
+        method: String = "DELETE",
+        body: [String: Any]? = nil,
+        authenticated: Bool = true
+    ) async throws {
+        guard let url = URL(string: "\(APIConfig.baseURL)\(endpoint)") else {
+            throw APIError.invalidURL
+        }
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = method
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if authenticated, let token = TokenManager.shared.accessToken {
+            urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        if let body = body {
+            urlRequest.httpBody = try JSONSerialization.data(withJSONObject: body)
+        }
+        let (data, response) = try await session.data(for: urlRequest)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.noData
+        }
+        if httpResponse.statusCode == 401 && authenticated {
+            let refreshed = try await refreshAccessToken()
+            if refreshed {
+                return try await requestVoidNoContent(endpoint: endpoint, method: method, body: body, authenticated: true)
+            }
+            throw APIError.unauthorized
+        }
+        if httpResponse.statusCode >= 400 {
+            if let errorResponse = try? decoder.decode(ErrorResponse.self, from: data) {
+                throw APIError.serverError(httpResponse.statusCode, errorResponse.error)
+            }
+            throw APIError.serverError(httpResponse.statusCode, "Unknown error")
+        }
+        // 2xx success; 204 No Content or any empty body — do not decode
+    }
+    
     // MARK: - Token Refresh
     private func refreshAccessToken() async throws -> Bool {
         guard !isRefreshing else { return false }
@@ -379,7 +418,7 @@ extension APIService {
     
     /// Permanently deletes the current user's account and all associated data. Requires auth.
     func deleteAccount() async throws {
-        try await requestVoid(endpoint: "/auth/me", method: "DELETE")
+        try await requestVoidNoContent(endpoint: "/auth/me", method: "DELETE")
     }
 }
 
