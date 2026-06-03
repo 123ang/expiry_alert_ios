@@ -245,7 +245,7 @@ struct LoginView: View {
                             
                             Text(localizationManager.t("auth.forgotPasswordSubtitle"))
                                 .font(.subheadline)
-                                .foregroundColor(Color(hex: theme.subtitleColor))
+                                .foregroundColor(Color(hex: theme.subtitleOnBackground))
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 20)
                             
@@ -291,7 +291,7 @@ struct LoginView: View {
                             
                             Text(localizationManager.t("auth.enterResetCodeSubtitle"))
                                 .font(.subheadline)
-                                .foregroundColor(Color(hex: theme.subtitleColor))
+                                .foregroundColor(Color(hex: theme.subtitleOnBackground))
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 20)
                             
