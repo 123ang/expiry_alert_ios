@@ -149,6 +149,25 @@ struct LoginView: View {
                     })
                     .disabled(isSubmitting)
                     .padding(.horizontal, 20)
+
+                    Button(action: {
+                        authViewModel.startLocalMode()
+                    }, label: {
+                        VStack(spacing: 4) {
+                            Text(localizationManager.t("login.continueLocal"))
+                                .fontWeight(.semibold)
+                            Text(localizationManager.t("login.localModeNote"))
+                                .font(.caption)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .foregroundColor(Color(hex: theme.primaryColor))
+                        .background(Color(hex: theme.primaryColor).opacity(0.12))
+                        .cornerRadius(10)
+                    })
+                    .buttonStyle(PlainButtonStyle())
+                    .padding(.horizontal, 20)
                     
                     // Toggle Sign Up / Login
                     Button(action: { withAnimation { isSignUp.toggle() } }, label: {

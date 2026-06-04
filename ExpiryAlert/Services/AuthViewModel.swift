@@ -1,34 +1,71 @@
 import SwiftUI
 import Combine
 
+enum ProductMode: String {
+    case local
+    case cloud
+}
+
 @MainActor
 class AuthViewModel: ObservableObject {
+    private let productModeStorageKey = "expiry_alert_ios_product_mode"
+
     @Published var user: User?
     @Published var isLoading = true
     @Published var isAuthenticated = false
     @Published var errorMessage: String?
+    @Published var productMode: ProductMode = .local
+
+    var isLocalMode: Bool { productMode == .local }
+    var isCloudMode: Bool { productMode == .cloud }
     
     init() {
+        productMode = ProductMode(rawValue: UserDefaults.standard.string(forKey: productModeStorageKey) ?? ProductMode.local.rawValue) ?? .local
         checkExistingSession()
+    }
+
+    private func setProductMode(_ mode: ProductMode) {
+        productMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: productModeStorageKey)
     }
     
     private func checkExistingSession() {
-        if TokenManager.shared.isLoggedIn {
+        if productMode == .cloud && TokenManager.shared.isLoggedIn {
             Task {
                 do {
                     let user = try await APIService.shared.getCurrentUser()
                     self.user = user
                     self.isAuthenticated = true
+                    self.setProductMode(.cloud)
                 } catch {
                     // Token expired or invalid
                     TokenManager.shared.clearTokens()
                     self.isAuthenticated = false
+                    self.setProductMode(.local)
                 }
                 self.isLoading = false
             }
         } else {
+            self.isAuthenticated = false
+            self.setProductMode(.local)
             isLoading = false
         }
+    }
+
+    func startLocalMode() {
+        TokenManager.shared.clearTokens()
+        user = nil
+        isAuthenticated = false
+        setProductMode(.local)
+        isLoading = false
+    }
+
+    func prepareCloudLogin() {
+        TokenManager.shared.clearTokens()
+        user = nil
+        isAuthenticated = false
+        setProductMode(.cloud)
+        isLoading = false
     }
     
     func signIn(email: String, password: String) async throws {
@@ -41,6 +78,7 @@ class AuthViewModel: ObservableObject {
             TokenManager.shared.saveTokens(response.tokens, deviceId: response.device?.id)
             self.user = response.user
             self.isAuthenticated = true
+            self.setProductMode(.cloud)
         } catch let error as APIError {
             self.errorMessage = error.errorDescription
             throw error
@@ -57,6 +95,7 @@ class AuthViewModel: ObservableObject {
             TokenManager.shared.saveTokens(response.tokens, deviceId: response.device?.id)
             self.user = response.user
             self.isAuthenticated = true
+            self.setProductMode(.cloud)
         } catch let error as APIError {
             self.errorMessage = error.errorDescription
             throw error
@@ -72,6 +111,7 @@ class AuthViewModel: ObservableObject {
         TokenManager.shared.clearTokens()
         self.user = nil
         self.isAuthenticated = false
+        self.setProductMode(.local)
     }
     
     func changePassword(currentPassword: String, newPassword: String) async throws {
@@ -94,5 +134,6 @@ class AuthViewModel: ObservableObject {
         TokenManager.shared.clearTokens()
         self.user = nil
         self.isAuthenticated = false
+        self.setProductMode(.local)
     }
 }

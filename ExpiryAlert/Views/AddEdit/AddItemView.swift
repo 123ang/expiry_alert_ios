@@ -352,7 +352,10 @@ struct AddItemView: View {
                 if !notes.isEmpty { itemData["notes"] = notes }
                 
                 // Upload image if selected (only set image_url when upload returns a non-empty URL)
-                if let image = selectedImage, let imageData = image.jpegData(compressionQuality: 0.8), !imageData.isEmpty {
+                if dataStore.isLocalMode == false,
+                   let image = selectedImage,
+                   let imageData = image.jpegData(compressionQuality: 0.8),
+                   !imageData.isEmpty {
                     let imageUrl = try await APIService.shared.uploadImage(
                         imageData: imageData,
                         filename: "\(UUID().uuidString).jpg"

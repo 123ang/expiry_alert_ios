@@ -14,7 +14,7 @@ struct ContentView: View {
     private var viewContent: some View {
         if authViewModel.isLoading {
             SplashScreenView()
-        } else if authViewModel.isAuthenticated {
+        } else if authViewModel.isAuthenticated || authViewModel.isLocalMode {
             MainTabView()
         } else {
             LoginView()

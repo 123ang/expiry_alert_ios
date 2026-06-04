@@ -14,6 +14,13 @@ struct SettingsView: View {
     @State private var showClearExpiredAlert = false
     @State private var showClearUsedAlert = false
     @State private var pendingInvitationCount = 0
+    @State private var showImportLocalData = false
+    @State private var importLocalDataText = ""
+    @State private var showCloudOnlyAlert = false
+    @State private var showExportAlert = false
+    @State private var exportMessage = ""
+    @State private var showError = false
+    @State private var errorMessage: String?
     
     private var theme: AppTheme { themeManager.currentTheme }
     private var isAuthenticated: Bool { authViewModel.isAuthenticated }
@@ -48,7 +55,13 @@ struct SettingsView: View {
                         // Group 1: Account & Groups
                         SettingsSectionTitle(title: localizationManager.t("settings.sectionAccountGroups"))
                         SettingsGroup {
-                            if let user = authViewModel.user {
+                            if authViewModel.isLocalMode {
+                                SettingsRowContent(
+                                    icon: "lock.shield.fill",
+                                    title: "Private Local Mode",
+                                    subtitle: localizationManager.t("settings.localModeInfoMessage")
+                                )
+                            } else if let user = authViewModel.user {
                                 NavigationLink(destination: AccountSettingsView()) {
                                     SettingsRowContent(
                                         icon: "person.fill",
@@ -59,7 +72,13 @@ struct SettingsView: View {
                                 }
                                 .buttonStyle(PlainButtonStyle())
                             }
-                            Button(action: { showGroupsModal = true }) {
+                            Button(action: {
+                                if authViewModel.isLocalMode {
+                                    showCloudOnlyAlert = true
+                                } else {
+                                    showGroupsModal = true
+                                }
+                            }) {
                                 SettingsRowContent(
                                     icon: "person.3.fill",
                                     title: localizationManager.t("settings.groups"),
@@ -141,6 +160,22 @@ struct SettingsView: View {
                                 )
                             }
                             .buttonStyle(PlainButtonStyle())
+                            Button(action: exportLocalData) {
+                                SettingsRowContent(
+                                    icon: "square.and.arrow.up.fill",
+                                    title: localizationManager.t("settings.exportLocalData"),
+                                    subtitle: localizationManager.t("settings.exportLocalDataDescription")
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
+                            Button(action: { showImportLocalData = true }) {
+                                SettingsRowContent(
+                                    icon: "square.and.arrow.down.fill",
+                                    title: localizationManager.t("settings.importLocalData"),
+                                    subtitle: localizationManager.t("settings.importLocalDataDescription")
+                                )
+                            }
+                            .buttonStyle(PlainButtonStyle())
                         }
                         
                         Spacer().frame(height: 20)
@@ -158,6 +193,27 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showJoinGroup) {
             JoinGroupView()
+        }
+        .sheet(isPresented: $showImportLocalData) {
+            importLocalDataSheet
+        }
+        .alert(localizationManager.t("settings.cloudOnlyFeatureTitle"), isPresented: $showCloudOnlyAlert) {
+            Button(localizationManager.t("common.cancel"), role: .cancel) {}
+            Button(localizationManager.t("settings.upgradeToCloud")) {
+                authViewModel.prepareCloudLogin()
+            }
+        } message: {
+            Text(localizationManager.t("settings.cloudOnlyFeatureMessage"))
+        }
+        .alert(localizationManager.t("settings.exportLocalSuccessTitle"), isPresented: $showExportAlert) {
+            Button(localizationManager.t("common.ok"), role: .cancel) {}
+        } message: {
+            Text(exportMessage)
+        }
+        .alert(localizationManager.t("alert.error"), isPresented: $showError) {
+            Button(localizationManager.t("common.ok"), role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? localizationManager.t("common.somethingWentWrong"))
         }
         .alert(localizationManager.t("settings.signOutAlertTitle"), isPresented: $showSignOutAlert) {
             Button(localizationManager.t("common.cancel"), role: .cancel) {}
@@ -208,6 +264,79 @@ struct SettingsView: View {
             pendingInvitationCount = invitations.count
         } catch {
             pendingInvitationCount = 0
+        }
+    }
+
+    private func exportLocalData() {
+        do {
+            let url = try dataStore.exportLocalData()
+            exportMessage = localizationManager.t("settings.exportLocalSuccessMessage")
+                .replacingOccurrences(of: "{path}", with: url.path)
+                .replacingOccurrences(of: "{items}", with: "\(dataStore.foodItems.count)")
+            showExportAlert = true
+        } catch {
+            errorMessage = error.localizedDescription
+            showError = true
+        }
+    }
+
+    private func importLocalData() {
+        do {
+            try dataStore.importLocalData(from: importLocalDataText)
+            importLocalDataText = ""
+            showImportLocalData = false
+            exportMessage = localizationManager.t("settings.importLocalSuccessMessage")
+                .replacingOccurrences(of: "{items}", with: "\(dataStore.foodItems.count)")
+                .replacingOccurrences(of: "{shopping}", with: "\(dataStore.shoppingItems.count)")
+                .replacingOccurrences(of: "{wishlist}", with: "\(dataStore.wishItems.count)")
+            showExportAlert = true
+        } catch {
+            errorMessage = error.localizedDescription
+            showError = true
+        }
+    }
+
+    private var importLocalDataSheet: some View {
+        NavigationStack {
+            ZStack {
+                Color(hex: theme.backgroundColor).ignoresSafeArea()
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(localizationManager.t("settings.importLocalInstructions"))
+                        .font(.subheadline)
+                        .foregroundColor(Color(hex: theme.subtitleOnBackground))
+                    TextEditor(text: $importLocalDataText)
+                        .font(.system(size: 13, design: .monospaced))
+                        .foregroundColor(Color(hex: theme.textColor))
+                        .frame(minHeight: 260)
+                        .padding(8)
+                        .background(Color(hex: theme.cardBackground))
+                        .cornerRadius(10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color(hex: theme.borderColor), lineWidth: 1)
+                        )
+                    Button(action: importLocalData) {
+                        Text(localizationManager.t("settings.importLocalButton"))
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 13)
+                            .background(Color(hex: theme.primaryColor))
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    Spacer()
+                }
+                .padding(20)
+            }
+            .navigationTitle(localizationManager.t("settings.importLocalTitle"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(localizationManager.t("common.cancel")) {
+                        showImportLocalData = false
+                    }
+                }
+            }
         }
     }
     

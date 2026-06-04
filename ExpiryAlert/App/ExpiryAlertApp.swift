@@ -26,7 +26,7 @@ struct ExpiryAlertApp: App {
                 .environmentObject(notificationService)
                 .environmentObject(toastManager)
                 .onAppear {
-                    dataStore.configure(authViewModel: authViewModel)
+                    dataStore.configure(authViewModel: authViewModel, notificationService: notificationService)
                 }
                 .onChange(of: authViewModel.isAuthenticated) { _, isAuth in
                     if isAuth {

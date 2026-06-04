@@ -6,6 +6,18 @@ private let selectedLocationIdsKey = "selectedLocationIds"
 private let activeGroupIdKey = "active_group_id"
 private let hasAppliedInitialCategorySelectionKey = "hasAppliedInitialCategorySelection"
 private let hasAppliedInitialLocationSelectionKey = "hasAppliedInitialLocationSelection"
+private let localGroupId = "local"
+
+struct LocalDataExport: Codable {
+    let schemaVersion: Int
+    let exportedAt: String
+    var groups: [Group]
+    var categories: [Category]
+    var locations: [Location]
+    var foodItems: [FoodItem]
+    var shoppingItems: [ShoppingItem]
+    var wishItems: [WishItem]
+}
 
 @MainActor
 class DataStore: ObservableObject {
@@ -21,6 +33,12 @@ class DataStore: ObservableObject {
     @Published var error: String?
     
     private var authViewModel: AuthViewModel?
+    private weak var notificationService: NotificationService?
+    var isLocalMode: Bool { authViewModel?.isLocalMode == true }
+    private var localStorageURL: URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("expiry-alert-ios-local-data.json")
+    }
     
     // MARK: - Computed
     var activeGroup: Group? {
@@ -251,15 +269,170 @@ class DataStore: ObservableObject {
     }
     
     // MARK: - Configuration
-    func configure(authViewModel: AuthViewModel) {
+    func configure(authViewModel: AuthViewModel, notificationService: NotificationService? = nil) {
         self.authViewModel = authViewModel
-        if authViewModel.isAuthenticated {
+        self.notificationService = notificationService
+        if authViewModel.isAuthenticated || authViewModel.isLocalMode {
             Task { await loadAll() }
         }
+    }
+
+    private func refreshExpiryNotifications() {
+        notificationService?.scheduleExpiryNotifications(for: activeFoodItems)
+    }
+
+    private static func nowISO() -> String {
+        ISO8601DateFormatter().string(from: Date())
+    }
+
+    private func defaultLocalGroup() -> Group {
+        Group(
+            id: localGroupId,
+            name: "Personal",
+            description: "Private Local Mode",
+            createdBy: nil,
+            inviteCode: nil,
+            maxMembers: 1,
+            createdAt: Self.nowISO(),
+            updatedAt: Self.nowISO()
+        )
+    }
+
+    private func localGroups(from importedGroups: [Group]) -> [Group] {
+        var nextGroups = importedGroups.isEmpty ? [defaultLocalGroup()] : importedGroups
+        if !nextGroups.contains(where: { $0.id == localGroupId }) {
+            nextGroups.insert(defaultLocalGroup(), at: 0)
+        }
+        return nextGroups
+    }
+
+    private func defaultLocalCategories() -> [Category] {
+        [
+            ("local-category-vegetables", "Vegetables", "🥬", "category.vegetables", 1),
+            ("local-category-fruits", "Fruits", "🍎", "category.fruits", 2),
+            ("local-category-dairy", "Dairy", "🥛", "category.dairy", 3),
+            ("local-category-meat", "Meat", "🥩", "category.meat", 4),
+            ("local-category-bread", "Bread", "🍞", "category.bread", 5),
+            ("local-category-snacks", "Snacks", "🍪", "category.snacks", 6),
+            ("local-category-beverages", "Beverages", "🥤", "category.beverages", 7),
+            ("local-category-canned", "Canned Food", "🥫", "category.canned", 8),
+        ].map { id, name, icon, key, order in
+            Category(
+                id: id,
+                groupId: nil,
+                name: name,
+                icon: icon,
+                color: nil,
+                translationKey: key,
+                isDefault: true,
+                section: nil,
+                sortOrder: order,
+                isCustomization: false,
+                createdAt: Self.nowISO(),
+                updatedAt: Self.nowISO()
+            )
+        }
+    }
+
+    private func defaultLocalLocations() -> [Location] {
+        [
+            ("local-location-fridge", "Fridge", "❄️", "defaultLocation.fridge", 1),
+            ("local-location-freezer", "Freezer", "🧊", "defaultLocation.freezer", 2),
+            ("local-location-pantry", "Pantry", "🏠", "defaultLocation.pantry", 3),
+            ("local-location-cabinet", "Cabinet", "🗄️", "defaultLocation.cabinet", 4),
+        ].map { id, name, icon, key, order in
+            Location(
+                id: id,
+                groupId: nil,
+                name: name,
+                icon: icon,
+                translationKey: key,
+                isDefault: true,
+                section: nil,
+                sortOrder: order,
+                isCustomization: false,
+                createdAt: Self.nowISO(),
+                updatedAt: Self.nowISO()
+            )
+        }
+    }
+
+    func loadLocalData() async {
+        if let data = try? Data(contentsOf: localStorageURL),
+           let localExport = try? JSONDecoder().decode(LocalDataExport.self, from: data) {
+            groups = localGroups(from: localExport.groups)
+            categories = localExport.categories.isEmpty ? defaultLocalCategories() : localExport.categories
+            locations = localExport.locations.isEmpty ? defaultLocalLocations() : localExport.locations
+            foodItems = localExport.foodItems
+            shoppingItems = localExport.shoppingItems
+            wishItems = localExport.wishItems
+        } else {
+            groups = [defaultLocalGroup()]
+            categories = defaultLocalCategories()
+            locations = defaultLocalLocations()
+            foodItems = []
+            shoppingItems = []
+            wishItems = []
+            try? saveLocalData()
+        }
+
+        activeGroupId = localGroupId
+        UserDefaults.standard.set(localGroupId, forKey: activeGroupIdKey)
+        applyInitialCategorySelectionIfNeeded()
+        applyInitialLocationSelectionIfNeeded()
+    }
+
+    @discardableResult
+    func saveLocalData() throws -> URL {
+        let localExport = LocalDataExport(
+            schemaVersion: 1,
+            exportedAt: Self.nowISO(),
+            groups: groups,
+            categories: categories,
+            locations: locations,
+            foodItems: foodItems,
+            shoppingItems: shoppingItems,
+            wishItems: wishItems
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(localExport)
+        try data.write(to: localStorageURL, options: [.atomic])
+        refreshExpiryNotifications()
+        return localStorageURL
+    }
+
+    func exportLocalData() throws -> URL {
+        try saveLocalData()
+    }
+
+    func importLocalData(from json: String) throws {
+        guard let data = json.data(using: .utf8) else {
+            throw NSError(domain: "ExpiryAlertLocalImport", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid JSON text."])
+        }
+
+        let localExport = try JSONDecoder().decode(LocalDataExport.self, from: data)
+        groups = localGroups(from: localExport.groups)
+        categories = localExport.categories.isEmpty ? defaultLocalCategories() : localExport.categories
+        locations = localExport.locations.isEmpty ? defaultLocalLocations() : localExport.locations
+        foodItems = localExport.foodItems
+        shoppingItems = localExport.shoppingItems
+        wishItems = localExport.wishItems
+        activeGroupId = localGroupId
+        UserDefaults.standard.set(localGroupId, forKey: activeGroupIdKey)
+        try saveLocalData()
+        refreshExpiryNotifications()
     }
     
     // MARK: - Load All Data
     func loadAll() async {
+        guard authViewModel?.isLocalMode != true else {
+            isLoading = true
+            await loadLocalData()
+            isLoading = false
+            return
+        }
+
         guard authViewModel?.isAuthenticated == true else { return }
         isLoading = true
         error = nil
@@ -306,20 +479,32 @@ class DataStore: ObservableObject {
             self.error = error.localizedDescription
         }
         
+        refreshExpiryNotifications()
         isLoading = false
     }
     
     // MARK: - Refresh Methods
     func refreshFoodItems() async {
+        if authViewModel?.isLocalMode == true {
+            await loadLocalData()
+            return
+        }
+
         guard let groupId = activeGroupId else { return }
         do {
             foodItems = try await APIService.shared.getFoodItems(groupId: groupId)
+            refreshExpiryNotifications()
         } catch {
             self.error = error.localizedDescription
         }
     }
     
     func refreshCategories() async {
+        if authViewModel?.isLocalMode == true {
+            await loadLocalData()
+            return
+        }
+
         error = nil
         let sortCategories: ([Category]) -> [Category] = { list in
             list.sorted { a, b in
@@ -345,6 +530,11 @@ class DataStore: ObservableObject {
     }
     
     func refreshLocations() async {
+        if authViewModel?.isLocalMode == true {
+            await loadLocalData()
+            return
+        }
+
         guard let groupId = activeGroupId else { return }
         do {
             let dLocs = (try? await APIService.shared.getLocations(groupId: nil)) ?? []
@@ -407,6 +597,11 @@ class DataStore: ObservableObject {
     }
     
     func refreshShoppingItems() async {
+        if authViewModel?.isLocalMode == true {
+            await loadLocalData()
+            return
+        }
+
         guard let groupId = activeGroupId else { return }
         do {
             shoppingItems = try await APIService.shared.getShoppingItems(groupId: groupId)
@@ -416,6 +611,11 @@ class DataStore: ObservableObject {
     }
     
     func refreshWishItems() async {
+        if authViewModel?.isLocalMode == true {
+            await loadLocalData()
+            return
+        }
+
         guard let groupId = activeGroupId else { return }
         do {
             wishItems = try await APIService.shared.getWishItems(groupId: groupId)
@@ -426,6 +626,12 @@ class DataStore: ObservableObject {
     
     // MARK: - Switch Group
     func switchGroup(to groupId: String) async {
+        if authViewModel?.isLocalMode == true {
+            activeGroupId = localGroupId
+            UserDefaults.standard.set(localGroupId, forKey: activeGroupIdKey)
+            return
+        }
+
         activeGroupId = groupId
         UserDefaults.standard.set(groupId, forKey: activeGroupIdKey)
         await loadAll()
@@ -433,6 +639,10 @@ class DataStore: ObservableObject {
     
     // MARK: - Create Group
     func createGroup(name: String, description: String?) async throws -> Group {
+        if authViewModel?.isLocalMode == true {
+            throw NSError(domain: "ExpiryAlertLocalMode", code: 1, userInfo: [NSLocalizedDescriptionKey: "Cloud sharing needs Cloud Mode."])
+        }
+
         let group = try await APIService.shared.createGroup(name: name, description: description)
         groups.append(group)
         if activeGroupId == nil {
@@ -443,6 +653,10 @@ class DataStore: ObservableObject {
     
     // MARK: - Group CRUD
     func updateGroup(id: String, name: String?, description: String?) async throws -> Group {
+        if authViewModel?.isLocalMode == true {
+            throw NSError(domain: "ExpiryAlertLocalMode", code: 1, userInfo: [NSLocalizedDescriptionKey: "Cloud sharing needs Cloud Mode."])
+        }
+
         let group = try await APIService.shared.updateGroup(id: id, name: name, description: description)
         if let index = groups.firstIndex(where: { $0.id == id }) {
             groups[index] = group
@@ -451,6 +665,10 @@ class DataStore: ObservableObject {
     }
     
     func deleteGroup(id: String) async throws {
+        if authViewModel?.isLocalMode == true {
+            throw NSError(domain: "ExpiryAlertLocalMode", code: 1, userInfo: [NSLocalizedDescriptionKey: "Cloud sharing needs Cloud Mode."])
+        }
+
         try await APIService.shared.deleteGroup(id: id)
         groups.removeAll { $0.id == id }
         if activeGroupId == id {
@@ -463,37 +681,57 @@ class DataStore: ObservableObject {
     }
     
     func getGroupMembers(groupId: String) async throws -> [GroupMembership] {
+        if authViewModel?.isLocalMode == true {
+            return []
+        }
+
         return try await APIService.shared.getGroupMembers(groupId: groupId)
     }
     
     func removeGroupMember(groupId: String, memberId: String) async throws {
+        if authViewModel?.isLocalMode == true { return }
         try await APIService.shared.removeGroupMember(groupId: groupId, memberId: memberId)
     }
     
     func updateGroupMemberRole(groupId: String, memberId: String, role: String) async throws {
+        if authViewModel?.isLocalMode == true { return }
         try await APIService.shared.updateGroupMemberRole(groupId: groupId, memberId: memberId, role: role)
     }
     
     // MARK: - Invitations
     func sendInvitation(groupId: String, email: String) async throws -> Invitation {
+        if authViewModel?.isLocalMode == true {
+            throw NSError(domain: "ExpiryAlertLocalMode", code: 1, userInfo: [NSLocalizedDescriptionKey: "Cloud sharing needs Cloud Mode."])
+        }
+
         return try await APIService.shared.sendInvitation(groupId: groupId, email: email)
     }
     
     func getPendingInvitations() async throws -> [Invitation] {
+        if authViewModel?.isLocalMode == true {
+            return []
+        }
+
         return try await APIService.shared.getPendingInvitations()
     }
     
     func acceptInvitation(id: String) async throws {
+        if authViewModel?.isLocalMode == true { return }
         try await APIService.shared.acceptInvitation(id: id)
         // Reload groups since we joined a new one
         await loadAll()
     }
     
     func declineInvitation(id: String) async throws {
+        if authViewModel?.isLocalMode == true { return }
         try await APIService.shared.declineInvitation(id: id)
     }
     
     func joinGroupByCode(code: String) async throws {
+        if authViewModel?.isLocalMode == true {
+            throw NSError(domain: "ExpiryAlertLocalMode", code: 1, userInfo: [NSLocalizedDescriptionKey: "Cloud sharing needs Cloud Mode."])
+        }
+
         try await APIService.shared.joinGroupByCode(code: code)
         // Reload groups since we joined a new one
         await loadAll()
@@ -501,31 +739,115 @@ class DataStore: ObservableObject {
     
     // MARK: - Food Item CRUD
     func createFoodItem(_ data: [String: Any]) async throws -> FoodItem {
+        if authViewModel?.isLocalMode == true {
+            let now = Self.nowISO()
+            let categoryId = data["category_id"] as? String
+            let locationId = data["location_id"] as? String
+            let category = categories.first { $0.id == categoryId }
+            let location = locations.first { $0.id == locationId }
+            let item = FoodItem(
+                id: UUID().uuidString,
+                groupId: localGroupId,
+                createdBy: nil,
+                name: data["name"] as? String ?? "",
+                brand: data["brand"] as? String,
+                quantity: data["quantity"] as? Int ?? 1,
+                unit: data["unit"] as? String,
+                categoryId: categoryId,
+                locationId: locationId,
+                purchaseDate: data["purchase_date"] as? String,
+                expiryDate: data["expiry_date"] as? String,
+                notes: data["notes"] as? String,
+                imageUrl: data["image_url"] as? String,
+                barcode: data["barcode"] as? String,
+                purchasePrice: data["purchase_price"] as? Double,
+                estimatedValue: data["estimated_value"] as? Double,
+                originalQuantity: data["original_quantity"] as? Int,
+                remainingQuantity: data["remaining_quantity"] as? Int,
+                isConsumed: false,
+                consumedAt: nil,
+                consumedBy: nil,
+                createdAt: now,
+                updatedAt: now,
+                version: 1,
+                syncStatus: "local",
+                categoryName: category?.name,
+                categoryIcon: category?.icon,
+                categoryTranslationKey: category?.translationKey,
+                locationName: location?.name,
+                locationIcon: location?.icon,
+                locationTranslationKey: location?.translationKey
+            )
+            foodItems.append(item)
+            try saveLocalData()
+            return item
+        }
+
         let item = try await APIService.shared.createFoodItem(item: data)
         foodItems.append(item)
+        refreshExpiryNotifications()
         return item
     }
     
     func updateFoodItem(id: String, updates: [String: Any]) async throws {
+        if authViewModel?.isLocalMode == true {
+            guard let index = foodItems.firstIndex(where: { $0.id == id }) else { return }
+            if let name = updates["name"] as? String { foodItems[index].name = name }
+            if let quantity = updates["quantity"] as? Int { foodItems[index].quantity = quantity }
+            if let categoryId = updates["category_id"] as? String { foodItems[index].categoryId = categoryId }
+            if let locationId = updates["location_id"] as? String { foodItems[index].locationId = locationId }
+            if let expiryDate = updates["expiry_date"] as? String { foodItems[index].expiryDate = expiryDate }
+            if let notes = updates["notes"] as? String { foodItems[index].notes = notes }
+            if let category = categories.first(where: { $0.id == foodItems[index].categoryId }) {
+                foodItems[index].categoryName = category.name
+                foodItems[index].categoryIcon = category.icon
+                foodItems[index].categoryTranslationKey = category.translationKey
+            }
+            if let location = locations.first(where: { $0.id == foodItems[index].locationId }) {
+                foodItems[index].locationName = location.name
+                foodItems[index].locationIcon = location.icon
+                foodItems[index].locationTranslationKey = location.translationKey
+            }
+            try saveLocalData()
+            return
+        }
+
         let updated = try await APIService.shared.updateFoodItem(id: id, updates: updates)
         if let index = foodItems.firstIndex(where: { $0.id == id }) {
             foodItems[index] = updated
         }
+        refreshExpiryNotifications()
     }
     
     func deleteFoodItem(id: String) async throws {
+        if authViewModel?.isLocalMode == true {
+            foodItems.removeAll { $0.id == id }
+            try saveLocalData()
+            return
+        }
+
         try await APIService.shared.deleteFoodItem(id: id)
         foodItems.removeAll { $0.id == id }
+        refreshExpiryNotifications()
     }
     
     /// Merges a full item (e.g. from single-item fetch) into the list so the list shows updated fields like image_url.
     func mergeFoodItemInList(_ item: FoodItem) {
         if let index = foodItems.firstIndex(where: { $0.id == item.id }) {
             foodItems[index] = item
+            refreshExpiryNotifications()
         }
     }
     
     func logFoodItemEvent(itemId: String, eventType: String, quantity: Int, reason: String? = nil) async throws {
+        if authViewModel?.isLocalMode == true {
+            if let index = foodItems.firstIndex(where: { $0.id == itemId }) {
+                foodItems[index].quantity = max(0, foodItems[index].quantity - quantity)
+                try saveLocalData()
+            }
+            return
+        }
+
         _ = try await APIService.shared.logFoodItemEvent(
             itemId: itemId,
             eventType: eventType,
@@ -537,12 +859,30 @@ class DataStore: ObservableObject {
     
     // MARK: - Category CRUD
     func createCategory(name: String, icon: String?) async throws {
+        if authViewModel?.isLocalMode == true {
+            let now = Self.nowISO()
+            let cat = Category(id: UUID().uuidString, groupId: localGroupId, name: name, icon: icon, color: nil, translationKey: nil, isDefault: false, section: nil, sortOrder: nil, isCustomization: true, createdAt: now, updatedAt: now)
+            categories.append(cat)
+            selectedCategoryIds = selectedCategoryIds.union([cat.id])
+            try saveLocalData()
+            return
+        }
+
         let cat = try await APIService.shared.createCategory(name: name, icon: icon, groupId: activeGroupId)
         categories.append(cat)
         selectedCategoryIds = selectedCategoryIds.union([cat.id])
     }
     
     func updateCategory(id: String, name: String?, icon: String?) async throws {
+        if authViewModel?.isLocalMode == true {
+            if let index = categories.firstIndex(where: { $0.id == id }) {
+                if let name { categories[index].name = name }
+                if let icon { categories[index].icon = icon }
+                try saveLocalData()
+            }
+            return
+        }
+
         let updated = try await APIService.shared.updateCategory(id: id, name: name, icon: icon)
         if let index = categories.firstIndex(where: { $0.id == id }) {
             categories[index] = updated
@@ -550,6 +890,13 @@ class DataStore: ObservableObject {
     }
     
     func deleteCategory(id: String) async throws {
+        if authViewModel?.isLocalMode == true {
+            selectedCategoryIds.remove(id)
+            categories.removeAll { $0.id == id }
+            try saveLocalData()
+            return
+        }
+
         let previous = categories
         var newSelected = selectedCategoryIds
         newSelected.remove(id)
@@ -566,12 +913,30 @@ class DataStore: ObservableObject {
     
     // MARK: - Location CRUD
     func createLocation(name: String, icon: String?) async throws {
+        if authViewModel?.isLocalMode == true {
+            let now = Self.nowISO()
+            let loc = Location(id: UUID().uuidString, groupId: localGroupId, name: name, icon: icon, translationKey: nil, isDefault: false, section: nil, sortOrder: nil, isCustomization: true, createdAt: now, updatedAt: now)
+            locations.append(loc)
+            selectedLocationIds = selectedLocationIds.union([loc.id])
+            try saveLocalData()
+            return
+        }
+
         let loc = try await APIService.shared.createLocation(name: name, icon: icon, groupId: activeGroupId)
         locations.append(loc)
         selectedLocationIds = selectedLocationIds.union([loc.id])
     }
     
     func updateLocation(id: String, name: String?, icon: String?) async throws {
+        if authViewModel?.isLocalMode == true {
+            if let index = locations.firstIndex(where: { $0.id == id }) {
+                if let name { locations[index].name = name }
+                if let icon { locations[index].icon = icon }
+                try saveLocalData()
+            }
+            return
+        }
+
         let updated = try await APIService.shared.updateLocation(id: id, name: name, icon: icon)
         if let index = locations.firstIndex(where: { $0.id == id }) {
             locations[index] = updated
@@ -579,6 +944,13 @@ class DataStore: ObservableObject {
     }
     
     func deleteLocation(id: String) async throws {
+        if authViewModel?.isLocalMode == true {
+            selectedLocationIds.remove(id)
+            locations.removeAll { $0.id == id }
+            try saveLocalData()
+            return
+        }
+
         let previous = locations
         var newSelected = selectedLocationIds
         newSelected.remove(id)
@@ -595,6 +967,31 @@ class DataStore: ObservableObject {
     
     // MARK: - Shopping Item CRUD
     func createShoppingItem(_ data: [String: Any]) async throws {
+        if authViewModel?.isLocalMode == true {
+            let now = Self.nowISO()
+            let item = ShoppingItem(
+                id: UUID().uuidString,
+                groupId: localGroupId,
+                createdBy: nil,
+                name: data["name"] as? String ?? "",
+                quantity: data["quantity"] as? Int ?? 1,
+                unit: data["unit"] as? String,
+                categoryId: data["category_id"] as? String,
+                whereToBuy: data["where_to_buy"] as? String,
+                isPurchased: false,
+                purchasedAt: nil,
+                purchasedBy: nil,
+                movedToInventory: false,
+                inventoryItemId: nil,
+                notes: data["notes"] as? String,
+                createdAt: now,
+                updatedAt: now
+            )
+            shoppingItems.append(item)
+            try saveLocalData()
+            return
+        }
+
         var item = try await APIService.shared.createShoppingItem(item: data)
         // If the API doesn't return where_to_buy in the response, keep the value we sent so the list shows it
         if item.whereToBuy == nil, let sent = data["where_to_buy"] as? String, !sent.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -609,6 +1006,10 @@ class DataStore: ObservableObject {
         var optimistic = previous
         optimistic.isPurchased.toggle()
         shoppingItems[index] = optimistic
+        if authViewModel?.isLocalMode == true {
+            try saveLocalData()
+            return
+        }
         do {
             let updated = try await APIService.shared.toggleShoppingItem(id: id)
             shoppingItems[index] = updated
@@ -619,6 +1020,19 @@ class DataStore: ObservableObject {
     }
     
     func updateShoppingItem(id: String, updates: [String: Any]) async throws {
+        if authViewModel?.isLocalMode == true {
+            guard let index = shoppingItems.firstIndex(where: { $0.id == id }) else { return }
+            if let name = updates["name"] as? String { shoppingItems[index].name = name }
+            if let quantity = updates["quantity"] as? Int { shoppingItems[index].quantity = quantity }
+            if let unit = updates["unit"] as? String { shoppingItems[index].unit = unit }
+            if let categoryId = updates["category_id"] as? String { shoppingItems[index].categoryId = categoryId }
+            if let whereToBuy = updates["where_to_buy"] as? String { shoppingItems[index].whereToBuy = whereToBuy }
+            if let moved = updates["moved_to_inventory"] as? Bool { shoppingItems[index].movedToInventory = moved }
+            if let inventoryItemId = updates["inventory_item_id"] as? String { shoppingItems[index].inventoryItemId = inventoryItemId }
+            try saveLocalData()
+            return
+        }
+
         let updated = try await APIService.shared.updateShoppingItem(id: id, updates: updates)
         if let index = shoppingItems.firstIndex(where: { $0.id == id }) {
             shoppingItems[index] = updated
@@ -641,22 +1055,65 @@ class DataStore: ObservableObject {
     }
     
     func deleteShoppingItem(id: String) async throws {
+        if authViewModel?.isLocalMode == true {
+            shoppingItems.removeAll { $0.id == id }
+            try saveLocalData()
+            return
+        }
+
         try await APIService.shared.deleteShoppingItem(id: id)
         shoppingItems.removeAll { $0.id == id }
     }
     
     func clearPurchasedShoppingItems(groupId: String) async throws {
+        if authViewModel?.isLocalMode == true {
+            shoppingItems.removeAll { $0.isPurchased }
+            try saveLocalData()
+            return
+        }
+
         _ = try await APIService.shared.clearPurchasedShoppingItems(groupId: groupId)
         shoppingItems.removeAll { $0.isPurchased }
     }
     
     // MARK: - Wish Item CRUD
     func createWishItem(_ data: [String: Any]) async throws {
+        if authViewModel?.isLocalMode == true {
+            let now = Self.nowISO()
+            let item = WishItem(
+                id: UUID().uuidString,
+                groupId: localGroupId,
+                createdBy: nil,
+                name: data["name"] as? String ?? "",
+                notes: data["notes"] as? String,
+                price: data["price"] as? Double,
+                currencyCode: data["currency_code"] as? String,
+                rating: data["rating"] as? Int,
+                imageUrl: data["image_url"] as? String,
+                createdAt: now,
+                updatedAt: now
+            )
+            wishItems.append(item)
+            try saveLocalData()
+            return
+        }
+
         let item = try await APIService.shared.createWishItem(item: data)
         wishItems.append(item)
     }
     
     func updateWishItem(id: String, updates: [String: Any]) async throws {
+        if authViewModel?.isLocalMode == true {
+            guard let index = wishItems.firstIndex(where: { $0.id == id }) else { return }
+            if let name = updates["name"] as? String { wishItems[index].name = name }
+            if let notes = updates["notes"] as? String { wishItems[index].notes = notes }
+            if let price = updates["price"] as? Double { wishItems[index].price = price }
+            if let currencyCode = updates["currency_code"] as? String { wishItems[index].currencyCode = currencyCode }
+            if let rating = updates["rating"] as? Int { wishItems[index].rating = rating }
+            try saveLocalData()
+            return
+        }
+
         let updated = try await APIService.shared.updateWishItem(id: id, updates: updates)
         if let index = wishItems.firstIndex(where: { $0.id == id }) {
             wishItems[index] = updated
@@ -664,6 +1121,12 @@ class DataStore: ObservableObject {
     }
     
     func deleteWishItem(id: String) async throws {
+        if authViewModel?.isLocalMode == true {
+            wishItems.removeAll { $0.id == id }
+            try saveLocalData()
+            return
+        }
+
         wishItems.removeAll { $0.id == id }
         do {
             try await APIService.shared.deleteWishItem(id: id)
