@@ -111,6 +111,7 @@ Since this is source-only, to create a proper `.xcodeproj`:
 
 - `ExpiryAlert/` – iOS app source (SwiftUI)
 - `API_REFERENCE.md` – API endpoints and auth (for app development)
+- `MONETIZATION.md` – **Canonical pricing, entitlement, and platform-sequencing rules; required reading before monetization/IAP work**
 - `Docs/` – Backend-related docs (database seed, schema changes, reports)
 
 ## Backend
