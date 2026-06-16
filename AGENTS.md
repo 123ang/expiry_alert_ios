@@ -15,3 +15,5 @@ Hard rules:
 - Never trust a client-only plan flag for authorization.
 - Do not use the deprecated USD40, USD57.92, or USD120 pricing.
 - iOS monetization ships before Android billing or web checkout.
+- Run `node scripts/check-calendar-notification-scheduling.mjs` after changing
+  `ExpiryAlert/Services/NotificationService.swift`.

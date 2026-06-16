@@ -9,6 +9,9 @@ class NotificationService: ObservableObject {
     @Published var todayAlerts = true
     @Published var expiredAlerts = true
     @Published var reminderDays = 3
+
+    private let notificationHour = 9
+    private let notificationMinute = 0
     
     init() {
         loadSettings()
@@ -48,25 +51,29 @@ class NotificationService: ObservableObject {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         
         for item in items {
-            guard let days = item.daysUntilExpiry else { continue }
+            guard let days = item.daysUntilExpiry,
+                  let expiryDate = expiryDate(for: item) else { continue }
             
             // Expiring soon notification
-            if expiryAlerts && days > 0 && days <= reminderDays {
+            if expiryAlerts && days > 0,
+               let scheduledDate = notificationDate(for: expiryDate, dayOffset: -reminderDays) {
+                let labelDays = min(days, reminderDays)
                 scheduleNotification(
                     id: "expiring_\(item.id)",
                     title: "Food Expiring Soon",
-                    body: "\(item.name) will expire in \(days) day\(days == 1 ? "" : "s")",
-                    timeInterval: 1 // Immediate for testing; in production, schedule for morning
+                    body: "\(item.name) will expire in \(labelDays) day\(labelDays == 1 ? "" : "s")",
+                    scheduledDate: scheduledDate
                 )
             }
             
             // Expires today notification
-            if todayAlerts && days == 0 {
+            if todayAlerts && days == 0,
+               let scheduledDate = notificationDate(for: expiryDate, dayOffset: 0) {
                 scheduleNotification(
                     id: "today_\(item.id)",
                     title: "Food Expiring Today!",
                     body: "\(item.name) expires today. Use it now!",
-                    timeInterval: 1
+                    scheduledDate: scheduledDate
                 )
             }
             
@@ -76,7 +83,7 @@ class NotificationService: ObservableObject {
                     id: "expired_\(item.id)",
                     title: "Food Has Expired",
                     body: "\(item.name) expired \(abs(days)) day\(abs(days) == 1 ? "" : "s") ago",
-                    timeInterval: 1
+                    scheduledDate: nextAvailableNotificationDate()
                 )
             }
         }
@@ -101,6 +108,51 @@ class NotificationService: ObservableObject {
         let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
         
         UNUserNotificationCenter.current().add(request)
+    }
+
+    private func scheduleNotification(id: String, title: String, body: String, scheduledDate: Date) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+
+        var components: DateComponents = Calendar.current.dateComponents(
+            [.year, .month, .day, .hour, .minute],
+            from: scheduledDate
+        )
+        components.second = 0
+
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        let request = UNNotificationRequest(identifier: id, content: content, trigger: trigger)
+
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    private func expiryDate(for item: FoodItem) -> Date? {
+        let rawDate = item.expiryDateFormatted
+        guard rawDate != "N/A" else { return nil }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = Calendar.current.timeZone
+        return formatter.date(from: rawDate)
+    }
+
+    private func notificationDate(for expiryDate: Date, dayOffset: Int) -> Date? {
+        let calendar = Calendar.current
+        guard let targetDay = calendar.date(byAdding: .day, value: dayOffset, to: calendar.startOfDay(for: expiryDate)),
+              let scheduledDate = calendar.date(
+                bySettingHour: notificationHour,
+                minute: notificationMinute,
+                second: 0,
+                of: targetDay
+              ) else { return nil }
+
+        return scheduledDate > Date() ? scheduledDate : nextAvailableNotificationDate()
+    }
+
+    private func nextAvailableNotificationDate() -> Date {
+        Calendar.current.date(byAdding: .minute, value: 1, to: Date()) ?? Date().addingTimeInterval(60)
     }
     
     // MARK: - Settings Persistence

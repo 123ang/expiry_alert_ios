@@ -98,8 +98,9 @@ Important wording:
 
 ## 6. Blocking Work Before Charging
 
-- [ ] Fix `ExpiryAlert/Services/NotificationService.swift`: it currently uses
-  one-second test triggers instead of calendar-based expiry scheduling.
+- [x] Fix `ExpiryAlert/Services/NotificationService.swift`: expiry alerts now
+  use calendar-based `UNCalendarNotificationTrigger` scheduling. Verification
+  guard: `node scripts/check-calendar-notification-scheduling.mjs`.
 - [ ] Add server-side APNs for Premium and Family.
 - [ ] Add backend entitlement/subscription tables and RevenueCat webhook
   verification.

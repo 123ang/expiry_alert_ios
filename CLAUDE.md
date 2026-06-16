@@ -15,7 +15,7 @@ Native SwiftUI app for the Expiry Alert product, backed by the live Express/Post
 - Entitlements are verified and enforced server-side, with RevenueCat
   recommended. Never authorize paid features from a client-only plan flag.
 - Any `$120/yr`, `$40/yr`, or `$57.92/yr` figures found in older notes or the Expo app's mock IAP service are deprecated.
-- Known blocking bug before any paid release: `ExpiryAlert/Services/NotificationService.swift` schedules all notifications with `timeInterval: 1` (fires immediately) instead of on expiry dates.
+- Notification scheduling guard: run `node scripts/check-calendar-notification-scheduling.mjs` after changes to `ExpiryAlert/Services/NotificationService.swift`.
 - Auth tokens belong in Keychain (already implemented in `APIService.swift`) — keep it that way.
 
 ## Related codebases
